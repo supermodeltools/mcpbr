@@ -1,0 +1,58 @@
+# Example MCP server configuration for mcpbr
+#
+# This example uses the Anthropic filesystem MCP server.
+# Replace with your own MCP server configuration.
+#
+# Requires ANTHROPIC_API_KEY environment variable.
+
+mcp_server:
+  # Name to register the MCP server as (appears in tool names like mcp__<name>__*)
+  name: "filesystem"
+  
+  # Command to start the MCP server
+  command: "npx"
+  
+  # Arguments to pass to the command
+  # Use {workdir} as a placeholder for the task working directory
+  args:
+    - "-y"
+    - "@modelcontextprotocol/server-filesystem"
+    - "{workdir}"
+  
+  # Environment variables for the MCP server (optional)
+  env: {}
+
+# Model provider (currently only anthropic is supported)
+provider: "anthropic"
+
+# Agent harness (currently only claude-code is supported)
+agent_harness: "claude-code"
+
+# Custom agent prompt (optional)
+# Use {problem_statement} as a placeholder for the issue text
+# If not specified, a default prompt is used
+# agent_prompt: |
+#   Fix the following bug in this repository:
+#
+#   {problem_statement}
+#
+#   Make the minimal changes necessary to fix the issue.
+
+# Model ID (Anthropic model identifier)
+# Run 'mcpbr models' to see available options
+model: "claude-sonnet-4-5-20250514"
+
+# Dataset configuration
+dataset: "SWE-bench/SWE-bench_Lite"
+
+# Number of tasks to evaluate (null for full dataset)
+sample_size: 1
+
+# Timeout for each task in seconds
+timeout_seconds: 300
+
+# Maximum concurrent task evaluations
+max_concurrent: 4
+
+# Maximum agent iterations per task
+max_iterations: 30

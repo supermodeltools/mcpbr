@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcpbr"
+version = "0.1.0"
+description = "Model Context Protocol Benchmark Runner - evaluate MCP servers against SWE-bench"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "mcpbr Contributors" }
+]
+keywords = ["mcp", "model-context-protocol", "swe-bench", "benchmark", "llm", "agents", "evaluation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "anthropic>=0.40.0",
+    "mcp>=1.0.0",
+    "docker>=7.0.0",
+    "datasets>=2.14.0",
+    "click>=8.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "pyyaml>=6.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+mcpbr = "mcpbr.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/greynewell/mcpbr"
+Repository = "https://github.com/greynewell/mcpbr"
+Documentation = "https://github.com/greynewell/mcpbr#readme"
+Changelog = "https://github.com/greynewell/mcpbr/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/greynewell/mcpbr/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcpbr"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m not integration')",
+]

@@ -1,0 +1,561 @@
+"""Docker environment management for mcpbr benchmark tasks."""
+
+import asyncio
+import atexit
+import os
+import signal
+import tempfile
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import docker
+from docker.models.containers import Container
+
+MCPBR_LABEL = "mcpbr"
+MCPBR_INSTANCE_LABEL = "mcpbr.instance"
+
+SWEBENCH_IMAGE_REGISTRY = "ghcr.io/epoch-research/swe-bench.eval"
+
+_active_managers: list["DockerEnvironmentManager"] = []
+
+
+def _cleanup_on_exit() -> None:
+    """Clean up all active managers on process exit."""
+    for manager in _active_managers:
+        try:
+            manager.cleanup_all_sync()
+        except Exception:
+            pass
+
+
+atexit.register(_cleanup_on_exit)
+
+
+def _signal_handler(signum: int, frame: Any) -> None:
+    """Handle termination signals by cleaning up containers."""
+    _cleanup_on_exit()
+    raise KeyboardInterrupt()
+
+
+_signals_registered = False
+
+
+def register_signal_handlers() -> None:
+    """Register signal handlers for graceful cleanup on SIGINT/SIGTERM.
+
+    Should be called once at application startup (e.g., from CLI).
+    """
+    global _signals_registered
+    if _signals_registered:
+        return
+    _signals_registered = True
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
+
+
+def get_swebench_image_name(instance_id: str) -> str:
+    """Get the pre-built SWE-bench image name for an instance.
+
+    Args:
+        instance_id: SWE-bench instance ID (e.g., 'astropy__astropy-12907')
+
+    Returns:
+        Full image name like 'ghcr.io/epoch-research/swe-bench.eval.x86_64.astropy__astropy-12907'
+    """
+    # Always use x86_64 images - Epoch has better coverage for x86_64
+    # and we can run them on arm64 via Docker emulation
+    return f"{SWEBENCH_IMAGE_REGISTRY}.x86_64.{instance_id}"
+
+
+@dataclass
+class TaskEnvironment:
+    """Represents an isolated environment for a SWE-bench task."""
+
+    container: Container
+    workdir: str
+    host_workdir: str
+    instance_id: str
+    uses_prebuilt: bool = field(default=False)
+    claude_cli_installed: bool = field(default=False)
+
+    async def exec_command(
+        self,
+        command: str | list[str],
+        timeout: int = 60,
+        workdir: str | None = None,
+        environment: dict[str, str] | None = None,
+    ) -> tuple[int, str, str]:
+        """Execute a command in the container.
+
+        Args:
+            command: Command to execute (string or list).
+            timeout: Timeout in seconds.
+            workdir: Working directory (defaults to /workspace).
+            environment: Optional environment variables to set.
+
+        Returns:
+            Tuple of (exit_code, stdout, stderr).
+        """
+        if isinstance(command, list):
+            cmd = command
+        else:
+            cmd = ["/bin/bash", "-c", command]
+
+        wd = workdir or self.workdir
+
+        def _exec() -> tuple[int, str, str]:
+            result = self.container.exec_run(
+                cmd,
+                workdir=wd,
+                demux=True,
+                environment=environment,
+            )
+            stdout = result.output[0].decode("utf-8") if result.output[0] else ""
+            stderr = result.output[1].decode("utf-8") if result.output[1] else ""
+            return result.exit_code, stdout, stderr
+
+        loop = asyncio.get_event_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _exec),
+            timeout=timeout,
+        )
+
+    async def exec_command_streaming(
+        self,
+        command: list[str],
+        workdir: str | None = None,
+        environment: dict[str, str] | None = None,
+        timeout: int = 300,
+        on_stdout: Any = None,
+        on_stderr: Any = None,
+    ) -> tuple[int, str, str]:
+        """Execute a command in the container with streaming output.
+
+        Args:
+            command: Command to execute as list.
+            workdir: Working directory (defaults to self.workdir).
+            environment: Optional environment variables to set.
+            timeout: Timeout in seconds.
+            on_stdout: Optional callback for stdout lines (receives str).
+            on_stderr: Optional callback for stderr lines (receives str).
+
+        Returns:
+            Tuple of (exit_code, stdout, stderr).
+        """
+        wd = workdir or self.workdir
+
+        def _exec_streaming() -> tuple[int, str, str]:
+            # Create the exec instance
+            exec_id = self.container.client.api.exec_create(
+                self.container.id,
+                command,
+                workdir=wd,
+                environment=environment,
+                stdout=True,
+                stderr=True,
+            )
+
+            # Start the exec with streaming
+            output_gen = self.container.client.api.exec_start(
+                exec_id,
+                stream=True,
+                demux=True,
+            )
+
+            stdout_lines: list[str] = []
+            stderr_lines: list[str] = []
+
+            for stdout_chunk, stderr_chunk in output_gen:
+                if stdout_chunk:
+                    decoded = stdout_chunk.decode("utf-8", errors="replace")
+                    stdout_lines.append(decoded)
+                    if on_stdout:
+                        # Process line by line
+                        for line in decoded.splitlines():
+                            on_stdout(line)
+
+                if stderr_chunk:
+                    decoded = stderr_chunk.decode("utf-8", errors="replace")
+                    stderr_lines.append(decoded)
+                    if on_stderr:
+                        for line in decoded.splitlines():
+                            on_stderr(line)
+
+            # Get exit code
+            inspect = self.container.client.api.exec_inspect(exec_id)
+            exit_code = inspect.get("ExitCode", -1)
+
+            return exit_code, "".join(stdout_lines), "".join(stderr_lines)
+
+        loop = asyncio.get_event_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _exec_streaming),
+            timeout=timeout,
+        )
+
+    async def write_file(self, path: str, content: str, workdir: str | None = None) -> None:
+        """Write content to a file in the container.
+
+        Args:
+            path: File path (relative to workdir).
+            content: Content to write.
+            workdir: Working directory. If different from /workspace (the host mount),
+                     writes directly into container via docker exec.
+        """
+        workdir = workdir or self.workdir
+
+        # If writing to the host-mounted /workspace, use filesystem directly
+        if workdir == "/workspace" or workdir == self.workdir:
+            full_path = os.path.join(self.host_workdir, path.lstrip("/"))
+            Path(full_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(full_path).write_text(content)
+        else:
+            # Write directly into container (e.g., /testbed)
+            import base64
+
+            encoded = base64.b64encode(content.encode()).decode()
+            full_path = os.path.join(workdir, path.lstrip("/"))
+            exit_code, _, stderr = await self.exec_command(
+                f"echo '{encoded}' | base64 -d > {full_path}",
+                timeout=30,
+                workdir=workdir,
+            )
+            if exit_code != 0:
+                raise RuntimeError(f"Failed to write file {full_path}: {stderr}")
+
+    async def read_file(self, path: str) -> str:
+        """Read content from a file in the container."""
+        full_path = os.path.join(self.host_workdir, path.lstrip("/"))
+        return Path(full_path).read_text()
+
+    async def cleanup(self) -> None:
+        """Stop and remove the container."""
+        try:
+            self.container.stop(timeout=5)
+            self.container.remove(force=True)
+        except Exception:
+            pass
+
+
+class DockerEnvironmentManager:
+    """Manages Docker environments for SWE-bench tasks."""
+
+    FALLBACK_IMAGE = "mcpbr-env"
+    DOCKERFILE_PATH = Path(__file__).parent.parent.parent / "Dockerfile"
+
+    def __init__(self, use_prebuilt: bool = True) -> None:
+        """Initialize the Docker environment manager.
+
+        Args:
+            use_prebuilt: If True, try to use pre-built SWE-bench images first.
+        """
+        self.client = docker.from_env()
+        self.use_prebuilt = use_prebuilt
+        self._fallback_image_built = False
+        self._temp_dirs: list[tempfile.TemporaryDirectory[str]] = []
+        self._containers: list[Container] = []
+        self._session_id = uuid.uuid4().hex[:8]
+        _active_managers.append(self)
+
+    async def _try_pull_prebuilt(self, instance_id: str) -> str | None:
+        """Try to pull a pre-built SWE-bench image.
+
+        Args:
+            instance_id: SWE-bench instance ID.
+
+        Returns:
+            Image name if successful, None if not available.
+        """
+        image_name = get_swebench_image_name(instance_id)
+
+        def _pull() -> str | None:
+            try:
+                self.client.images.pull(image_name, platform="linux/amd64")
+                return image_name
+            except docker.errors.ImageNotFound:
+                return None
+            except docker.errors.APIError:
+                return None
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _pull)
+
+    async def _ensure_fallback_image(self) -> None:
+        """Ensure the fallback Docker image is built."""
+        if self._fallback_image_built:
+            return
+
+        def _build() -> None:
+            try:
+                self.client.images.get(self.FALLBACK_IMAGE)
+            except docker.errors.ImageNotFound:
+                dockerfile_dir = self.DOCKERFILE_PATH.parent
+                if self.DOCKERFILE_PATH.exists():
+                    self.client.images.build(
+                        path=str(dockerfile_dir),
+                        tag=self.FALLBACK_IMAGE,
+                        rm=True,
+                    )
+                else:
+                    self.client.images.pull("python:3.11-slim")
+                    self._use_fallback_image()
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _build)
+        self._fallback_image_built = True
+
+    def _use_fallback_image(self) -> None:
+        """Tag python:3.11-slim as our image if Dockerfile not found."""
+        try:
+            img = self.client.images.get("python:3.11-slim")
+            img.tag(self.FALLBACK_IMAGE)
+        except Exception:
+            pass
+
+    async def create_environment(
+        self,
+        task: dict[str, Any],
+    ) -> TaskEnvironment:
+        """Create an isolated environment for a SWE-bench task.
+
+        Args:
+            task: SWE-bench task dictionary with repo, base_commit, etc.
+
+        Returns:
+            TaskEnvironment instance.
+        """
+        instance_id = task["instance_id"]
+        repo = task["repo"]
+        base_commit = task["base_commit"]
+
+        image_name = None
+        uses_prebuilt = False
+
+        if self.use_prebuilt:
+            image_name = await self._try_pull_prebuilt(instance_id)
+            if image_name:
+                uses_prebuilt = True
+
+        if not image_name:
+            await self._ensure_fallback_image()
+            image_name = self.FALLBACK_IMAGE
+
+        temp_dir = tempfile.TemporaryDirectory(prefix=f"mcpbr_{instance_id}_")
+        self._temp_dirs.append(temp_dir)
+        host_workdir = temp_dir.name
+
+        container_name = f"mcpbr-{self._session_id}-{instance_id}"
+
+        container_workdir = "/testbed" if uses_prebuilt else "/workspace"
+
+        def _create_container() -> Container:
+            container = self.client.containers.run(
+                image_name,
+                command="tail -f /dev/null",
+                name=container_name,
+                detach=True,
+                platform="linux/amd64" if uses_prebuilt else None,
+                network_mode="bridge",  # Enable network for API calls
+                volumes={
+                    host_workdir: {"bind": "/workspace", "mode": "rw"},
+                },
+                working_dir=container_workdir,
+                remove=False,
+                labels={
+                    MCPBR_LABEL: "true",
+                    MCPBR_INSTANCE_LABEL: instance_id,
+                },
+            )
+            return container
+
+        loop = asyncio.get_event_loop()
+        container = await loop.run_in_executor(None, _create_container)
+        self._containers.append(container)
+
+        env = TaskEnvironment(
+            container=container,
+            workdir=container_workdir,
+            host_workdir=host_workdir,
+            instance_id=instance_id,
+            uses_prebuilt=uses_prebuilt,
+            claude_cli_installed=False,
+        )
+
+        if uses_prebuilt:
+            await self._copy_repo_to_workspace(env)
+            # Install Claude CLI for running agent inside container
+            await self._install_claude_cli(env)
+            env.claude_cli_installed = True
+        else:
+            await self._setup_repo(env, repo, base_commit)
+
+        return env
+
+    async def _copy_repo_to_workspace(self, env: TaskEnvironment) -> None:
+        """Copy repo from pre-built image /testbed to /workspace for agent access.
+
+        Args:
+            env: Task environment with pre-built image.
+        """
+        exit_code, stdout, stderr = await env.exec_command(
+            "cp -r /testbed/. /workspace/",
+            timeout=120,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to copy repo to workspace: {stderr}")
+
+        # Mark the workspace as safe for git operations
+        await env.exec_command(
+            "git config --global --add safe.directory /workspace",
+            timeout=10,
+        )
+
+        # Reset any uncommitted changes from the pre-built image
+        await env.exec_command(
+            "cd /workspace && git checkout -- . && git clean -fd",
+            timeout=30,
+        )
+
+        env.workdir = "/workspace"
+
+    async def _install_claude_cli(self, env: TaskEnvironment) -> None:
+        """Install Node.js and Claude CLI in the container.
+
+        Also creates a non-root user for running Claude CLI, since it blocks
+        --dangerously-skip-permissions when running as root.
+
+        Args:
+            env: Task environment to install into.
+        """
+        # Install Node.js (using NodeSource for a recent version)
+        install_node_cmd = (
+            "apt-get update -qq && "
+            "apt-get install -y -qq curl ca-certificates gnupg sudo && "
+            "mkdir -p /etc/apt/keyrings && "
+            "curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | "
+            "gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && "
+            "echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main' | "
+            "tee /etc/apt/sources.list.d/nodesource.list && "
+            "apt-get update -qq && "
+            "apt-get install -y -qq nodejs"
+        )
+
+        exit_code, stdout, stderr = await env.exec_command(
+            install_node_cmd,
+            timeout=300,
+            workdir="/tmp",
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to install Node.js: {stderr}")
+
+        # Install Claude CLI globally
+        exit_code, stdout, stderr = await env.exec_command(
+            "npm install -g @anthropic-ai/claude-code",
+            timeout=120,
+            workdir="/tmp",
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to install Claude CLI: {stderr}")
+
+        # Create a non-root user for running Claude CLI
+        # Claude CLI blocks --dangerously-skip-permissions when running as root
+        create_user_cmd = (
+            "useradd -m -s /bin/bash mcpbr && "
+            "chown -R mcpbr:mcpbr /workspace && "
+            f"chown -R mcpbr:mcpbr {env.workdir}"
+        )
+        exit_code, stdout, stderr = await env.exec_command(
+            create_user_cmd,
+            timeout=30,
+            workdir="/tmp",
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to create non-root user: {stderr}")
+
+    async def _setup_repo(
+        self,
+        env: TaskEnvironment,
+        repo: str,
+        base_commit: str,
+    ) -> None:
+        """Clone the repository at the specified commit (fallback path)."""
+        repo_url = f"https://github.com/{repo}.git"
+
+        exit_code, stdout, stderr = await env.exec_command(
+            f"git clone --depth 100 {repo_url} .",
+            timeout=120,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to clone {repo}: {stderr}")
+
+        exit_code, stdout, stderr = await env.exec_command(
+            f"git fetch --depth 100 origin {base_commit}",
+            timeout=60,
+        )
+
+        exit_code, stdout, stderr = await env.exec_command(
+            f"git checkout {base_commit}",
+            timeout=30,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to checkout {base_commit}: {stderr}")
+
+    def cleanup_all_sync(self) -> None:
+        """Synchronously clean up all containers and temporary directories.
+
+        Used by signal handlers and atexit.
+        """
+        for container in self._containers:
+            try:
+                container.stop(timeout=5)
+                container.remove(force=True)
+            except Exception:
+                pass
+        self._containers.clear()
+
+        for temp_dir in self._temp_dirs:
+            try:
+                temp_dir.cleanup()
+            except Exception:
+                pass
+        self._temp_dirs.clear()
+
+        if self in _active_managers:
+            _active_managers.remove(self)
+
+    async def cleanup_all(self) -> None:
+        """Clean up all containers and temporary directories."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.cleanup_all_sync)
+
+
+def cleanup_orphaned_containers(dry_run: bool = False) -> list[str]:
+    """Find and remove orphaned mcpbr containers.
+
+    Args:
+        dry_run: If True, only list containers without removing them.
+
+    Returns:
+        List of container names/IDs that were (or would be) removed.
+    """
+    client = docker.from_env()
+    removed: list[str] = []
+
+    containers = client.containers.list(
+        all=True,
+        filters={"label": f"{MCPBR_LABEL}=true"},
+    )
+
+    for container in containers:
+        name = container.name or container.short_id
+        removed.append(name)
+        if not dry_run:
+            try:
+                container.stop(timeout=5)
+                container.remove(force=True)
+            except Exception:
+                pass
+
+    return removed
