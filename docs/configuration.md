@@ -52,8 +52,8 @@ agent_prompt: |
   Make the minimal changes necessary to fix the issue.
   Focus on the root cause, not symptoms.
 
-# Model Configuration
-model: "claude-sonnet-4-5-20250514"
+# Model Configuration (use alias or full name)
+model: "sonnet"  # or "claude-sonnet-4-5-20250929"
 
 # Dataset Configuration
 dataset: "SWE-bench/SWE-bench_Lite"
@@ -128,16 +128,44 @@ Use `{problem_statement}` as a placeholder for the SWE-bench issue text.
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `model` | `claude-sonnet-4-5-20250514` | Anthropic model ID |
+| `model` | `sonnet` | Model alias or full Anthropic model ID |
+
+You can use either aliases (`sonnet`, `opus`, `haiku`) or full model names (`claude-sonnet-4-5-20250929`).
+Aliases automatically resolve to the latest model version.
 
 See [Installation](installation.md#supported-models) for the full list of supported models.
+
+### Benchmark Configuration
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `benchmark` | `swe-bench` | Benchmark to run (`swe-bench` or `cybergym`) |
+| `cybergym_level` | `1` | CyberGym difficulty level (0-3, only used for CyberGym) |
+
+!!! info "Benchmark Selection"
+    - **SWE-bench**: Bug fixing in Python repositories, evaluated with test suites
+    - **CyberGym**: Security exploit generation in C/C++ projects, evaluated by crash detection
+
+    See the [Benchmarks guide](benchmarks.md) for detailed information.
+
+!!! tip "CLI Override"
+    Override the benchmark at runtime:
+    ```bash
+    # Run CyberGym instead of SWE-bench
+    mcpbr run -c config.yaml --benchmark cybergym --level 2
+    ```
 
 ### Dataset Configuration
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `dataset` | `SWE-bench/SWE-bench_Lite` | HuggingFace dataset |
+| `dataset` | `null` | HuggingFace dataset (optional, benchmark provides default) |
 | `sample_size` | `null` | Number of tasks (`null` = full dataset) |
+
+The `dataset` field is optional. If not specified, each benchmark uses its default dataset:
+
+- **SWE-bench**: `SWE-bench/SWE-bench_Lite`
+- **CyberGym**: `sunblaze-ucb/cybergym`
 
 ### Execution Parameters
 
@@ -194,7 +222,7 @@ mcp_server:
   command: "npx"
   args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-model: "claude-haiku-4-5-20250514"  # Faster, cheaper
+model: "haiku"  # Faster, cheaper
 sample_size: 3
 max_concurrent: 1
 timeout_seconds: 180
@@ -210,7 +238,7 @@ mcp_server:
   command: "npx"
   args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-model: "claude-sonnet-4-5-20250514"
+model: "sonnet"
 sample_size: null  # Full dataset
 max_concurrent: 8
 timeout_seconds: 600

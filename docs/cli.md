@@ -26,11 +26,12 @@ mcpbr init --help
 
 | Command | Description |
 |---------|-------------|
-| `mcpbr run` | Run SWE-bench evaluation with configured MCP server |
+| `mcpbr run` | Run benchmark evaluation with configured MCP server |
 | `mcpbr init` | Generate an example configuration file |
 | `mcpbr models` | List supported models for evaluation |
 | `mcpbr providers` | List available model providers |
 | `mcpbr harnesses` | List available agent harnesses |
+| `mcpbr benchmarks` | List available benchmarks (SWE-bench, CyberGym) |
 | `mcpbr cleanup` | Remove orphaned mcpbr Docker containers |
 
 ---
@@ -53,6 +54,8 @@ mcpbr run -c CONFIG [OPTIONS]
 | `--model TEXT` | `-m` | String | Override model from config |
 | `--provider TEXT` | `-p` | Choice | Override provider from config |
 | `--harness TEXT` | | Choice | Override agent harness from config |
+| `--benchmark TEXT` | `-b` | Choice | Override benchmark from config (`swe-bench` or `cybergym`) |
+| `--level INTEGER` | | Integer | Override CyberGym difficulty level (0-3) |
 | `--sample INTEGER` | `-n` | Integer | Override sample size from config |
 | `--mcp-only` | `-M` | Flag | Run only MCP evaluation (skip baseline) |
 | `--baseline-only` | `-B` | Flag | Run only baseline evaluation (skip MCP) |
@@ -97,11 +100,17 @@ mcpbr run -c config.yaml -t astropy__astropy-12907 -t django__django-11099
 #### Override Config Values
 
 ```bash
-# Override model
-mcpbr run -c config.yaml -m claude-opus-4-5-20250514
+# Override model (use alias or full name)
+mcpbr run -c config.yaml -m opus
 
 # Override sample size
 mcpbr run -c config.yaml -n 50
+
+# Override benchmark
+mcpbr run -c config.yaml --benchmark cybergym
+
+# Run CyberGym with specific level
+mcpbr run -c config.yaml --benchmark cybergym --level 3
 
 # Override prompt
 mcpbr run -c config.yaml --prompt "Fix this bug: {problem_statement}"
@@ -167,15 +176,17 @@ mcpbr models
 ### Output
 
 ```text
-        Supported Anthropic Models
-+----------------------------+------------------+---------+
-| Model ID                   | Display Name     | Context |
-+----------------------------+------------------+---------+
-| claude-opus-4-5-20250514   | Claude Opus 4.5  | 200,000 |
-| claude-sonnet-4-5-20250514 | Claude Sonnet 4.5| 200,000 |
-| claude-haiku-4-5-20250514  | Claude Haiku 4.5 | 200,000 |
-| ...                        | ...              | ...     |
-+----------------------------+------------------+---------+
+                   Supported Anthropic Models
++----------------------------+------------------------+---------+
+| Model ID                   | Display Name           | Context |
++----------------------------+------------------------+---------+
+| claude-opus-4-5-20251101   | Claude Opus 4.5        | 200,000 |
+| claude-sonnet-4-5-20250929 | Claude Sonnet 4.5      | 200,000 |
+| claude-haiku-4-5-20251001  | Claude Haiku 4.5       | 200,000 |
+| opus                       | Claude Opus (alias)    | 200,000 |
+| sonnet                     | Claude Sonnet (alias)  | 200,000 |
+| haiku                      | Claude Haiku (alias)   | 200,000 |
++----------------------------+------------------------+---------+
 ```
 
 ---
@@ -223,6 +234,36 @@ claude-code (default)
   Shells out to Claude Code CLI with MCP server support
   Requires: claude CLI installed
 ```
+
+---
+
+## `mcpbr benchmarks`
+
+List available benchmarks with their characteristics.
+
+### Usage
+
+```bash
+mcpbr benchmarks
+```
+
+### Output
+
+```text
+Available Benchmarks
+
+┌────────────┬──────────────────────────────────────────────────────────┬─────────────────────────┐
+│ Benchmark  │ Description                                              │ Output Type             │
+├────────────┼──────────────────────────────────────────────────────────┼─────────────────────────┤
+│ swe-bench  │ Software bug fixes in GitHub repositories                │ Patch (unified diff)    │
+│ cybergym   │ Security vulnerability exploitation (PoC generation)     │ Exploit code            │
+└────────────┴──────────────────────────────────────────────────────────┴─────────────────────────┘
+
+Use --benchmark flag with 'run' command to select a benchmark
+Example: mcpbr run -c config.yaml --benchmark cybergym --level 2
+```
+
+See the [Benchmarks guide](benchmarks.md) for detailed information about each benchmark.
 
 ---
 
