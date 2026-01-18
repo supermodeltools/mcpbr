@@ -12,7 +12,11 @@ faq:
 
 # Installation
 
-This guide covers everything you need to get mcpbr up and running.
+```bash
+pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v
+```
+
+That's it. For the full setup guide, read on.
 
 ## Prerequisites
 

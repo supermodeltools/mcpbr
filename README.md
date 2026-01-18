@@ -1,5 +1,13 @@
 # mcpbr
 
+```bash
+pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v
+```
+
+Benchmark your MCP server against real GitHub issues. One command, hard numbers.
+
+---
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/greynewell/mcpbr/main/assets/mcpbr-logo.jpg" alt="MCPBR Logo" width="400">
 </p>
@@ -15,19 +23,9 @@
 
 > Stop guessing if your MCP server actually helps. Get hard numbers comparing tool-assisted vs. baseline agent performance on real GitHub issues.
 
-A benchmark runner for evaluating MCP (Model Context Protocol) servers against software engineering benchmarks including SWE-bench and CyberGym.
-
 <p align="center">
   <img src="https://raw.githubusercontent.com/greynewell/mcpbr/main/assets/mcpbr-demo.gif" alt="mcpbr in action" width="700">
 </p>
-
-## Try It Now
-
-```bash
-pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v
-```
-
-That's it. One task, one config, one answer. Like ordering a beer at a German railway station - surprisingly efficient.
 
 ## What You Get
 

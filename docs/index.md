@@ -10,6 +10,14 @@ faq:
 
 # mcpbr
 
+```bash
+pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v
+```
+
+Benchmark your MCP server against real GitHub issues. One command, hard numbers.
+
+---
+
 <p align="center">
   <img src="assets/mcpbr-logo.jpg" alt="MCPBR Logo" width="400">
 </p>
@@ -22,14 +30,6 @@ faq:
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > Stop guessing if your MCP server actually helps. Get hard numbers comparing tool-assisted vs. baseline agent performance on real GitHub issues.
-
-## Try It Now
-
-```bash
-pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v
-```
-
-That's it. One task, one config, one answer.
 
 <p align="center">
   <img src="assets/mcpbr-demo.gif" alt="mcpbr in action" width="700">
