@@ -1367,7 +1367,6 @@ def annotate(config_path: Path, add_schema: bool) -> None:
         sys.exit(1)
 
 
-
 @main.group(context_settings={"help_option_names": ["-h", "--help"]})
 def cache() -> None:
     """Cache management commands.
@@ -1578,7 +1577,6 @@ def smoke_test(config_path: Path | None) -> None:
 
     # Exit with appropriate code
     sys.exit(0 if success else 1)
-
 
 
 if __name__ == "__main__":
