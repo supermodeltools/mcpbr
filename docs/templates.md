@@ -464,4 +464,4 @@ mcpbr run -c my-server.yaml -n 25
 
 - [Configuration Guide](configuration.md) - Detailed config reference
 - [CLI Reference](cli.md) - All command options
-- [Quick Start](../README.md#quick-start) - Getting started guide
+- [Quick Start](index.md#quick-start) - Getting started guide
