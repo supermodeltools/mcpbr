@@ -1,11 +1,13 @@
-# @greynewell/mcpbr-claude-plugin
+# mcpbr-claude-plugin
 
 > Claude Code plugin for mcpbr - Makes Claude an expert at running MCP benchmarks
 
-[![npm version](https://badge.fury.io/js/%40greynewell%2Fmcpbr-claude-plugin.svg)](https://www.npmjs.com/package/@greynewell/mcpbr-claude-plugin)
+[![npm version](https://badge.fury.io/js/mcpbr-claude-plugin.svg)](https://www.npmjs.com/package/mcpbr-claude-plugin)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This Claude Code plugin provides specialized skills that make Claude an expert at using [mcpbr](https://github.com/greynewell/mcpbr) for MCP server benchmarking.
+
+> **Note**: This package is also available as `@greynewell/mcpbr-claude-plugin` for those who prefer scoped package names.
 
 ## What is mcpbr?
 
@@ -24,7 +26,7 @@ cd mcpbr
 ### Option 2: Install via npm
 
 ```bash
-npm install -g @greynewell/mcpbr-claude-plugin
+npm install -g mcpbr-claude-plugin
 ```
 
 ### Option 3: Claude Code Plugin Manager
@@ -97,7 +99,7 @@ pytest tests/test_claude_plugin.py -v
 ## Related Packages
 
 - [`mcpbr`](https://pypi.org/project/mcpbr/) - Python package (core implementation)
-- [`@greynewell/mcpbr`](https://www.npmjs.com/package/@greynewell/mcpbr) - npm CLI wrapper
+- [`mcpbr`](https://www.npmjs.com/package/mcpbr) - npm CLI wrapper (also available as `@greynewell/mcpbr`)
 
 ## Documentation
 

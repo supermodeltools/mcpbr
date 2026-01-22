@@ -1,11 +1,13 @@
-# @greynewell/mcpbr
+# mcpbr
 
 > npm wrapper for the mcpbr CLI tool
 
-[![npm version](https://badge.fury.io/js/%40greynewell%2Fmcpbr.svg)](https://www.npmjs.com/package/@greynewell/mcpbr)
+[![npm version](https://badge.fury.io/js/mcpbr.svg)](https://www.npmjs.com/package/mcpbr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This npm package provides convenient access to the [mcpbr](https://github.com/greynewell/mcpbr) command-line tool for Node.js and JavaScript developers.
+
+> **Note**: This package is also available as `@greynewell/mcpbr` for those who prefer scoped package names.
 
 ## What is mcpbr?
 
@@ -22,10 +24,10 @@ This npm package provides convenient access to the [mcpbr](https://github.com/gr
 
 ```bash
 # Run directly with npx (no installation)
-npx @greynewell/mcpbr run -c config.yaml
+npx mcpbr run -c config.yaml
 
 # Or install globally
-npm install -g @greynewell/mcpbr
+npm install -g mcpbr
 
 # Then use anywhere
 mcpbr run -c config.yaml
@@ -49,22 +51,22 @@ All `mcpbr` commands are available through the npm wrapper:
 
 ```bash
 # Initialize configuration
-npx @greynewell/mcpbr init
+npx mcpbr init
 
 # Run benchmark evaluation
-npx @greynewell/mcpbr run -c config.yaml
+npx mcpbr run -c config.yaml
 
 # List available models
-npx @greynewell/mcpbr models
+npx mcpbr models
 
 # List available benchmarks
-npx @greynewell/mcpbr benchmarks
+npx mcpbr benchmarks
 
 # Run with verbose output
-npx @greynewell/mcpbr run -c config.yaml -v
+npx mcpbr run -c config.yaml -v
 
 # Run specific tasks
-npx @greynewell/mcpbr run -c config.yaml -t astropy__astropy-12907
+npx mcpbr run -c config.yaml -t astropy__astropy-12907
 ```
 
 ## Quick Start
@@ -77,8 +79,8 @@ pip install mcpbr
 export ANTHROPIC_API_KEY="your-api-key"
 
 # 3. Run benchmark
-npx @greynewell/mcpbr init
-npx @greynewell/mcpbr run -c mcpbr.yaml -n 5 -v
+npx mcpbr init
+npx mcpbr run -c mcpbr.yaml -n 5 -v
 ```
 
 ## Why use the npm package?
@@ -153,7 +155,7 @@ npm test
 ## Related Packages
 
 - [`mcpbr`](https://pypi.org/project/mcpbr/) - Python package (core implementation)
-- [`@greynewell/mcpbr-claude-plugin`](https://www.npmjs.com/package/@greynewell/mcpbr-claude-plugin) - Claude Code plugin
+- [`mcpbr-claude-plugin`](https://www.npmjs.com/package/mcpbr-claude-plugin) - Claude Code plugin (also available as `@greynewell/mcpbr-claude-plugin`)
 
 ## License
 
