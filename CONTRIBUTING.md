@@ -2,6 +2,10 @@
 
 Thank you for your interest in contributing to mcpbr! This document provides guidelines and information for contributors.
 
+## Community Guidelines
+
+All contributors are expected to follow our [Community Guidelines](CODE_OF_CONDUCT.md). We maintain a focused, productive technical environment where contributions are judged on technical merit.
+
 ## How to Contribute
 
 ### Reporting Bugs

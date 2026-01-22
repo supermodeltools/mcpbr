@@ -1101,6 +1101,8 @@ New to mcpbr or want to optimize your workflow? Check out the **[Best Practices 
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) or the **[contributing guide](https://greynewell.github.io/mcpbr/contributing/)** for guidelines on how to contribute.
 
+All contributors are expected to follow our [Community Guidelines](CODE_OF_CONDUCT.md).
+
 ## License
 
 MIT - see [LICENSE](LICENSE) for details.
