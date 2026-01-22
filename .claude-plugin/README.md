@@ -99,7 +99,7 @@ pytest tests/test_claude_plugin.py -v
 ## Related Packages
 
 - [`mcpbr`](https://pypi.org/project/mcpbr/) - Python package (core implementation)
-- [`mcpbr`](https://www.npmjs.com/package/mcpbr) - npm CLI wrapper (also available as `@greynewell/mcpbr`)
+- [`mcpbr-cli`](https://www.npmjs.com/package/mcpbr-cli) - npm CLI wrapper (also available as `@greynewell/mcpbr`)
 
 ## Documentation
 

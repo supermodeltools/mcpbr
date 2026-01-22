@@ -1,13 +1,13 @@
-# mcpbr
+# mcpbr-cli
 
 > npm wrapper for the mcpbr CLI tool
 
-[![npm version](https://badge.fury.io/js/mcpbr.svg)](https://www.npmjs.com/package/mcpbr)
+[![npm version](https://badge.fury.io/js/mcpbr-cli.svg)](https://www.npmjs.com/package/mcpbr-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This npm package provides convenient access to the [mcpbr](https://github.com/greynewell/mcpbr) command-line tool for Node.js and JavaScript developers.
 
-> **Note**: This package is also available as `@greynewell/mcpbr` for those who prefer scoped package names.
+> **Note**: This package is also available as `@greynewell/mcpbr` for those who prefer scoped package names. Both packages provide the `mcpbr` command after installation.
 
 ## What is mcpbr?
 
@@ -24,10 +24,10 @@ This npm package provides convenient access to the [mcpbr](https://github.com/gr
 
 ```bash
 # Run directly with npx (no installation)
-npx mcpbr run -c config.yaml
+npx mcpbr-cli run -c config.yaml
 
 # Or install globally
-npm install -g mcpbr
+npm install -g mcpbr-cli
 
 # Then use anywhere
 mcpbr run -c config.yaml
@@ -51,22 +51,22 @@ All `mcpbr` commands are available through the npm wrapper:
 
 ```bash
 # Initialize configuration
-npx mcpbr init
+npx mcpbr-cli init
 
 # Run benchmark evaluation
-npx mcpbr run -c config.yaml
+npx mcpbr-cli run -c config.yaml
 
 # List available models
-npx mcpbr models
+npx mcpbr-cli models
 
 # List available benchmarks
-npx mcpbr benchmarks
+npx mcpbr-cli benchmarks
 
 # Run with verbose output
-npx mcpbr run -c config.yaml -v
+npx mcpbr-cli run -c config.yaml -v
 
 # Run specific tasks
-npx mcpbr run -c config.yaml -t astropy__astropy-12907
+npx mcpbr-cli run -c config.yaml -t astropy__astropy-12907
 ```
 
 ## Quick Start
@@ -79,8 +79,8 @@ pip install mcpbr
 export ANTHROPIC_API_KEY="your-api-key"
 
 # 3. Run benchmark
-npx mcpbr init
-npx mcpbr run -c mcpbr.yaml -n 5 -v
+npx mcpbr-cli init
+npx mcpbr-cli run -c mcpbr.yaml -n 5 -v
 ```
 
 ## Why use the npm package?

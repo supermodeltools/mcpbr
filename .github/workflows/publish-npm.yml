@@ -106,10 +106,10 @@ jobs:
 
       - name: Publish unscoped CLI package to npm
         run: |
-          # Update package.json to remove scope
-          node -e "const pkg = require('./package.json'); pkg.name = 'mcpbr'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
+          # Update package.json to remove scope and use mcpbr-cli name
+          node -e "const pkg = require('./package.json'); pkg.name = 'mcpbr-cli'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
           npm publish --access public
-          echo "Unscoped CLI package (mcpbr) published successfully"
+          echo "Unscoped CLI package (mcpbr-cli) published successfully"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

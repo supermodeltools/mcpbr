@@ -5,12 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.20] - 2026-01-22
+
+### Infrastructure
+
+- **npm Publishing**: Updated unscoped CLI package name to `mcpbr-cli`
+  - Unscoped CLI package is now `mcpbr-cli` (command is still `mcpbr`)
+  - Scoped package remains `@greynewell/mcpbr`
+  - Plugin packages remain `mcpbr-claude-plugin` (unscoped) and `@greynewell/mcpbr-claude-plugin` (scoped)
+  - Updated documentation to reflect new package names
+  - All packages provide the same CLI command: `mcpbr`
+
 ## [0.3.19] - 2026-01-22
 
 ### Changed
 
 - **Documentation**: Updated all documentation to prefer unscoped npm package names
-  - Primary installation method now uses `mcpbr` instead of `@greynewell/mcpbr`
+  - Primary installation method now uses `mcpbr-cli` instead of `@greynewell/mcpbr`
   - Plugin installation now uses `mcpbr-claude-plugin` instead of `@greynewell/mcpbr-claude-plugin`
   - Scoped versions still available and mentioned as alternatives
   - Updated NPM.md, .claude-plugin/README.md with new package references
@@ -348,6 +359,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--no-prebuilt` CLI flag to disable pre-built images and build from scratch
 - Network access for containers to enable API calls from within Docker
 
+[0.3.20]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.20
 [0.3.19]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.19
 [0.3.18]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.18
 [0.3.17]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.17
