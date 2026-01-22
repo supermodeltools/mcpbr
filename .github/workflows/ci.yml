@@ -21,11 +21,33 @@ jobs:
         run: |
           python3 scripts/sync_version.py
           # Check if sync made any changes
-          if ! git diff --quiet .claude-plugin/plugin.json; then
+          if ! git diff --quiet .claude-plugin/plugin.json .claude-plugin/marketplace.json .claude-plugin/package.json package.json; then
             echo "Error: Version files are out of sync!"
             echo "Run 'python3 scripts/sync_version.py' to sync versions"
-            git diff .claude-plugin/plugin.json
+            git diff .claude-plugin/plugin.json .claude-plugin/marketplace.json .claude-plugin/package.json package.json
             exit 1
+          fi
+
+  plugin-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Claude Code CLI
+        run: |
+          curl -fsSL https://download.claude.com/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Validate plugin manifest
+        run: |
+          claude plugin validate .claude-plugin/plugin.json
+
+      - name: Validate marketplace manifest
+        run: |
+          if [ -f .claude-plugin/marketplace.json ]; then
+            claude plugin validate .claude-plugin/marketplace.json
+          else
+            echo "marketplace.json not found, skipping validation"
           fi
 
   lint:
