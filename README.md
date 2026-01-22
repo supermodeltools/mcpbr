@@ -1,7 +1,11 @@
 # mcpbr
 
 ```bash
+# Install via pip
 pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v
+
+# Or via npm
+npm install -g mcpbr-cli && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v
 ```
 
 Benchmark your MCP server against real GitHub issues. One command, hard numbers.
@@ -204,6 +208,21 @@ This will exit with code 1 if the regression rate exceeds 10%, failing the CI jo
 Run `mcpbr models` to see the full list.
 
 </details>
+
+### via npm
+
+```bash
+# Run with npx (no installation)
+npx mcpbr-cli run -c config.yaml
+
+# Or install globally
+npm install -g mcpbr-cli
+mcpbr run -c config.yaml
+```
+
+> **Note**: The npm package requires Python 3.11+ and the mcpbr Python package (`pip install mcpbr`)
+
+### via pip
 
 ```bash
 # Install from PyPI
