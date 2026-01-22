@@ -4,7 +4,9 @@ Sync version across all project files.
 
 This script reads the version from pyproject.toml and updates it in:
 - .claude-plugin/plugin.json
-- package.json (if it exists)
+- .claude-plugin/marketplace.json
+- .claude-plugin/package.json
+- package.json (root, if it exists)
 
 Usage:
     python scripts/sync_version.py
@@ -75,11 +77,37 @@ def update_package_json(package_json_path: Path, version: str) -> None:
     print(f"Updated {package_json_path}: {old_version} -> {version}")
 
 
+def update_marketplace_json(marketplace_json_path: Path, version: str) -> None:
+    """Update version in .claude-plugin/marketplace.json."""
+    if not marketplace_json_path.exists():
+        print(f"Info: {marketplace_json_path} does not exist. Skipping marketplace.json sync.")
+        return
+
+    with open(marketplace_json_path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    old_version = data.get("version", "unknown")
+    data["version"] = version
+
+    # Also update version in plugins array
+    if "plugins" in data and isinstance(data["plugins"], list):
+        for plugin in data["plugins"]:
+            plugin["version"] = version
+
+    with open(marketplace_json_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")  # Add trailing newline
+
+    print(f"Updated {marketplace_json_path}: {old_version} -> {version}")
+
+
 def main() -> None:
     """Main entry point."""
     project_root = Path(__file__).parent.parent
     pyproject_path = project_root / "pyproject.toml"
     plugin_json_path = project_root / ".claude-plugin" / "plugin.json"
+    marketplace_json_path = project_root / ".claude-plugin" / "marketplace.json"
+    plugin_package_json_path = project_root / ".claude-plugin" / "package.json"
     package_json_path = project_root / "package.json"
 
     if not pyproject_path.exists():
@@ -93,7 +121,13 @@ def main() -> None:
     # Update plugin.json
     update_plugin_json(plugin_json_path, version)
 
-    # Update package.json (if it exists)
+    # Update marketplace.json (if it exists)
+    update_marketplace_json(marketplace_json_path, version)
+
+    # Update plugin's package.json (if it exists)
+    update_package_json(plugin_package_json_path, version)
+
+    # Update root package.json (if it exists)
     update_package_json(package_json_path, version)
 
     print("\nVersion sync complete!")
