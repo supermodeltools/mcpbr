@@ -33,22 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Claude Code CLI
-        run: |
-          curl -fsSL https://download.claude.com/install.sh | bash
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Validate plugin manifest
-        run: |
-          claude plugin validate .claude-plugin/plugin.json
-
-      - name: Validate marketplace manifest
-        run: |
-          if [ -f .claude-plugin/marketplace.json ]; then
-            claude plugin validate .claude-plugin/marketplace.json
-          else
-            echo "marketplace.json not found, skipping validation"
-          fi
+      - name: Validate plugin and marketplace manifests
+        run: python3 scripts/validate_plugin_manifests.py
 
   lint:
     runs-on: ubuntu-latest
