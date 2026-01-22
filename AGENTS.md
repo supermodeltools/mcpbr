@@ -299,7 +299,40 @@ Then you MUST update the README.md accordingly.
 
 ### Changelog
 
-For significant changes, add an entry to CHANGELOG.md following the Keep a Changelog format.
+**REQUIRED:** The CHANGELOG.md MUST be kept up to date for EVERY release.
+
+When working on features, bug fixes, or any code changes that will be included in a release:
+
+1. **Add entries to CHANGELOG.md** under the `[Unreleased]` section (or current version if preparing a release)
+2. **Follow Keep a Changelog format:**
+   - Use sections: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`
+   - Write clear, user-focused descriptions
+   - Include issue/PR numbers: `(closes #123)`
+   - Use past tense for what was done
+3. **Be comprehensive** - Document all user-visible changes
+4. **Update before release** - Ensure all changes for the version are documented
+
+Example:
+```markdown
+## [Unreleased]
+
+### Added
+
+- **New Feature**: Description of the feature (closes #123)
+  - Additional detail about the feature
+  - Another detail
+
+### Fixed
+
+- Fixed bug in XYZ component (fixes #456)
+```
+
+**Before any release:**
+- Verify CHANGELOG.md includes ALL changes since the last release
+- Update version number and release date
+- Add release tag link at the bottom
+
+The CHANGELOG is the primary source of truth for what changed between releases and is critical for users upgrading.
 
 ## Pull Request Guidelines
 
