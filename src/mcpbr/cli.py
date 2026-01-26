@@ -101,9 +101,9 @@ def main() -> None:
     "--config",
     "-c",
     "config_path",
-    required=True,
-    type=click.Path(exists=True, path_type=Path),
-    help="Path to YAML configuration file",
+    default="mcpbr.yaml",
+    type=click.Path(path_type=Path),
+    help="Path to YAML configuration file (default: mcpbr.yaml, auto-created if missing)",
 )
 @click.option(
     "--model",
@@ -424,6 +424,30 @@ def run(
     if mcp_only and baseline_only:
         console.print("[red]Error: Cannot specify both --mcp-only and --baseline-only[/red]")
         sys.exit(1)
+
+    # Auto-init: Create default config if it doesn't exist
+    if not config_path.exists():
+        from .templates import generate_config_yaml, get_template
+
+        console.print(f"[yellow]Config file not found: {config_path}[/yellow]")
+        console.print("[cyan]Creating default configuration...[/cyan]")
+
+        template = get_template("filesystem")
+        if not template:
+            console.print("[red]Error: Could not load default template[/red]")
+            sys.exit(1)
+
+        config_yaml = generate_config_yaml(template)
+
+        # Create parent directories if they don't exist
+        try:
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            config_path.write_text(config_yaml)
+            console.print(f"[green]✓ Created {config_path}[/green]")
+            console.print("[dim]Edit this file to customize your MCP server configuration[/dim]\n")
+        except OSError as e:
+            console.print(f"[red]Error: Could not create config file: {e}[/red]")
+            sys.exit(1)
 
     try:
         config = load_config(config_path)
