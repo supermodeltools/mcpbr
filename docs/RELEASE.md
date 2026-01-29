@@ -11,65 +11,71 @@ This document explains how to create releases for mcpbr, both manually and via a
 - [What Happens on Release](#what-happens-on-release)
 - [Troubleshooting](#troubleshooting)
 
-## Automated Release (Recommended)
+## Release Process (Recommended)
 
 ### Workflow Overview
 
-The release workflow follows this pattern:
-1. **Tag and publish the current version** in `pyproject.toml`
-2. **After successful release**, automatically bump to next patch version
-3. **Push version bump commit** to main (ready for next release)
+mcpbr uses GitHub's release drafter and automatic version bumping:
 
-### Using GitHub Actions UI
+1. **Release Drafter** automatically creates draft releases from merged PRs
+2. You **manually publish the release** in the GitHub UI
+3. **Post-release workflow** automatically bumps the version on main
 
-1. **Navigate to Actions**
-   - Go to the [Actions tab](../../actions) in GitHub
-   - Select "Create Release" workflow from the left sidebar
+### Step-by-Step
 
-2. **Trigger the workflow**
-   - Click "Run workflow" button
-   - Optionally add additional release notes
-   - Click "Run workflow"
+#### 1. Review the Draft Release
 
-3. **Wait for completion**
-   - The workflow will:
-     - Read current version from `pyproject.toml`
-     - Create a git tag (e.g., `v0.4.1`)
-     - Create a GitHub release
-     - Trigger PyPI and npm publication
-     - **After successful release:**
-       - Bump to next patch version (e.g., `0.4.1` → `0.4.2`)
-       - Sync version to all package files
-       - Commit and push to main
+As you merge PRs to main, Release Drafter automatically:
+- Creates/updates a draft release
+- Categorizes changes (features, fixes, breaking changes)
+- Generates release notes from PR titles and labels
 
-### Using GitHub CLI
+Navigate to [Releases](../../releases) to see the current draft.
+
+#### 2. Prepare the Version (if needed)
+
+For **patch releases** (bug fixes, minor improvements):
+- No preparation needed! The current version in `pyproject.toml` is already correct.
+
+For **minor releases** (new features) or **major releases** (breaking changes):
+- Manually update the version in `pyproject.toml` before publishing:
 
 ```bash
-# Release current version
-gh workflow run release.yml
-
-# With additional notes
-gh workflow run release.yml \
-  -f release_notes="Special thanks to all contributors!"
-```
-
-### Version Bump Strategy
-
-The workflow **always bumps the patch version** after release (e.g., `0.4.1` → `0.4.2`). For minor or major version bumps, manually update `pyproject.toml` on main before triggering the release:
-
-```bash
-# For minor bump (0.4.2 → 0.5.0)
-# 1. Edit pyproject.toml: version = "0.5.0"
-# 2. Sync and commit:
+# For minor bump (0.4.1 → 0.5.0)
+sed -i 's/^version = "0.4.1"/version = "0.5.0"/' pyproject.toml
 python3 scripts/sync_version.py
 git add pyproject.toml package.json .claude-plugin/
 git commit -m "chore: Bump version to 0.5.0"
 git push origin main
-# 3. Trigger release workflow
 
 # For major bump (0.5.0 → 1.0.0)
-# Same process, update to version = "1.0.0"
+# Same process, update to "1.0.0"
 ```
+
+#### 3. Publish the Release
+
+In the [Releases](../../releases) page:
+1. Click "Edit" on the draft release
+2. Set the tag to match the version in `pyproject.toml` (e.g., `v0.4.1`)
+3. Review the auto-generated release notes
+4. Add any additional context or breaking change warnings
+5. Click "Publish release"
+
+#### 4. Automatic Version Bump
+
+After you publish the release, the **Post-Release Version Bump** workflow automatically:
+- ✅ Bumps to next patch version (e.g., `0.4.1` → `0.4.2`)
+- ✅ Syncs version across all files
+- ✅ Commits and pushes to main
+- ✅ Triggers PyPI and npm publication
+
+**Main branch is now ready for the next release!**
+
+### Version Bump Strategy
+
+- **Patch (automatic after release):** Bug fixes, minor improvements (0.4.1 → 0.4.2)
+- **Minor (manual before release):** New features, enhancements (0.4.2 → 0.5.0)
+- **Major (manual before release):** Breaking changes (0.5.0 → 1.0.0)
 
 ## Manual Release
 
