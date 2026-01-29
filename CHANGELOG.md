@@ -123,6 +123,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unused Variables** (#286): Fixed RUF059 lint warnings
   - `mcp_stdout` now used in error messages instead of discarded
 
+## [0.3.29] - 2026-01-26
+
+### Added
+
+- **XML Output Format** (#301): Convert results to XML format with `mcpbr export xml` (closes #13)
+  - XML export for results data
+  - Easy integration with XML-based tools
+- **One-Liner Install** (#302): Simplified installation with auto-init
+  - `curl -sSL https://raw.githubusercontent.com/greynewell/mcpbr/main/install.sh | bash`
+  - Automatically installs and runs quick test
+  - Improved onboarding experience
+
+### Documentation
+
+- Expanded Claude Code plugin installation options with multiple methods (#275)
+
+## [0.3.28] - 2026-01-26
+
+### Added
+
+- **Default Logging** (#295): Detailed execution logs enabled by default
+  - Logs automatically saved to `output_dir/logs/` to prevent data loss
+  - Critical for expensive evaluation runs ($50+)
+  - Add `--disable-logs` or `disable_logs: true` to opt-out
+- **Consolidated Output Directory** (#296): All outputs in single timestamped directory
+  - Default: `.mcpbr_run_YYYYMMDD_HHMMSS/`
+  - Contains: config.yaml, evaluation_state.json, logs/, README.txt
+  - Easy archiving: `tar -czf results.tar.gz .mcpbr_run_*`
+  - Customizable with `--output-dir` flag or `output_dir` config option
+
+### Fixed
+
+- Fixed timeout statistics calculation bug
+
+## [0.3.27] - 2026-01-24
+
+### Fixed
+
+- **TypeError in Log Formatter** (#294): Fixed Read tool offset/limit parameter handling
+  - Changed defaults from empty string to None
+  - Added proper type conversion before arithmetic operations
+  - Resolves intermittent failures affecting ~5-7% of SWE-bench tasks
+  - Added comprehensive regression tests
+
+## [0.3.26] - 2026-01-23
+
+### Added
+
+- **MCP Observability** (#292): Enhanced logging and error reporting for MCP servers
+  - Better visibility into MCP server behavior
+  - Improved error messages for debugging
+- **MCP Pre-Flight Health Checks** (#293): Validate MCP server before evaluation
+  - Early detection of MCP server issues
+  - Prevent wasted evaluation time on misconfigured servers
+
+## [0.3.25] - 2026-01-23
+
+### Infrastructure
+
+- Testing automated release workflow
+
+## [0.3.24] - 2026-01-23
+
+### Added
+
+- **Automated Release Workflow**: One-command releases via GitHub Actions
+  - Command: `gh workflow run release.yml -f version_bump=patch`
+  - Automatic version syncing across all package files
+  - Integrated with PyPI and npm publication
+  - New [Release Guide](docs/RELEASE.md) and [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
+
+### Fixed
+
+- **Docker TypeError** (#290): Convert instance_id to string in Docker labels
+  - Prevents TypeError when instance_id is not a string
+  - Improves Docker label handling robustness
+
+### Documentation
+
+- Added release documentation links to README
+
+## [0.3.23] - 2026-01-23
+
+### Added
+
+- **Comprehensive MCP Initialization Logging** (#286): Better error handling and logging
+  - Detailed logging for MCP server initialization
+  - Enhanced error messages for troubleshooting
+  - Improved timeout handling
+
+### Infrastructure
+
+- Fixed version sync across all package files
+
+## [0.3.22] - 2026-01-22
+
+### Fixed
+
+- npm package now correctly includes README.md (removed NPM.md experiment)
+  - Previous attempt to use separate NPM.md did not work
+  - Package now displays main README on npm registry
+
+## [0.3.21] - 2026-01-22
+
+### Changed
+
+- **npm Package Documentation**: Attempted to use NPM.md for npm-specific docs
+  - Configured npm package to display NPM.md on registry
+  - Added npm installation instructions to README quick-start
+  - Added dedicated npm installation section before pip instructions
+
 ## [0.3.20] - 2026-01-22
 
 ### Infrastructure
@@ -480,6 +591,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.4.2]: https://github.com/greynewell/mcpbr/releases/tag/v0.4.2
 [0.4.1]: https://github.com/greynewell/mcpbr/releases/tag/v0.4.1
 [0.4.0]: https://github.com/greynewell/mcpbr/releases/tag/v0.4.0
+[0.3.29]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.29
+[0.3.28]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.28
+[0.3.27]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.27
+[0.3.26]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.26
+[0.3.25]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.25
+[0.3.24]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.24
+[0.3.23]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.23
+[0.3.22]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.22
+[0.3.21]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.21
 [0.3.20]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.20
 [0.3.19]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.19
 [0.3.18]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.18
