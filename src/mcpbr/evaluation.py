@@ -199,21 +199,46 @@ async def run_tests(
 
 
 def _build_test_command(test: str, uses_prebuilt: bool = False) -> str:
-    """Build a pytest command for the given test identifier.
+    """Build a test command for the given test identifier.
 
     Args:
-        test: Test identifier (e.g., "test_file.py::test_func" or "test_file.py")
+        test: Test identifier in various formats:
+            - pytest: "tests/test_file.py::test_func" or "tests/test_file.py"
+            - Django: "test_method (module.TestClass)"
         uses_prebuilt: If True, activate the testbed conda environment first.
 
     Returns:
         Shell command string to run the test.
     """
+    import re
+
     # Pre-built SWE-bench images use a conda environment called 'testbed'
     if uses_prebuilt:
         activate = "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
     else:
         activate = ""
 
+    # Detect Django test format: "test_method (module.TestClass)"
+    if "(" in test and ")" in test and "." in test:
+        # Extract module path from parentheses
+        match = re.search(r"\(([^)]+)\)", test)
+        if match:
+            module_path = match.group(1)
+            parts = module_path.split(".")
+            if len(parts) >= 2:
+                test_module = ".".join(parts[:2])
+                return f"{activate}cd /testbed/tests && ./runtests.py {test_module}"
+
+    # Detect Django test format: dot-separated, no ::, not a file path
+    is_django_test = (
+        "." in test and "::" not in test and not test.endswith(".py") and not test.startswith("/")
+    )
+
+    if is_django_test:
+        test_module = ".".join(test.split(".")[:2])
+        return f"{activate}cd /testbed/tests && ./runtests.py {test_module}"
+
+    # Standard pytest formats
     if "::" in test:
         return f"{activate}python -m pytest {test} -xvs 2>&1"
     elif test.endswith(".py"):
