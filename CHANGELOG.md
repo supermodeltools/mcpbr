@@ -5,6 +5,510 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Infrastructure
+
+- Refactored release workflow to auto-bump version after GitHub UI release
+  - Removed automated release creation workflow (releases now created manually in GitHub UI)
+  - Restored Release Drafter for auto-generating draft releases from PRs
+  - Added post-release workflow that automatically bumps patch version on main after release publish
+
+## [0.4.2] - 2026-01-29
+
+### Documentation
+
+- Added npm package links throughout documentation and README
+- Added thinking_budget configuration documentation with examples and validation notes
+- Fixed incorrect CLI override documentation (thinking_budget is YAML-only, no CLI flag exists)
+- Added npm badge and installation section to docs
+
+## [0.4.1] - 2026-01-29
+
+### Added
+
+- **HumanEval Benchmark** (#304): Code generation benchmark support
+  - Evaluate LLM code generation capabilities on HumanEval dataset
+  - Test function implementations against unit test suites
+  - Automatic solution extraction and evaluation
+- **Extended Thinking Mode** (#332): Support for Claude's extended thinking
+  - `thinking_budget` configuration option (1024-31999 tokens)
+  - Enables deeper reasoning for complex tasks
+  - Validation with clear error messages for invalid values
+  - Environment variable injection for both Docker and local execution
+- **Performance Profiling** (#331): Comprehensive profiling infrastructure
+  - Track tool call latencies with percentiles (p50, p95, p99)
+  - Memory usage monitoring (peak and average RSS/VMS)
+  - Infrastructure overhead measurement (Docker, MCP startup)
+  - Automated insights generation from profiling data
+  - Enable with `--profile` flag or `enable_profiling` config
+- **Benchmark Filtering** (#305): Filter tasks by difficulty, category, and tags
+  - `filter_difficulty` - Filter by task difficulty level
+  - `filter_category` - Filter by task category
+  - `filter_tags` - Filter by custom tags (all must match)
+  - CLI flags: `--filter-difficulty`, `--filter-category`, `--filter-tags`
+- **Runtime Tracking** (#326): Track task execution duration
+  - Records total runtime for each task evaluation
+  - Helps identify performance bottlenecks
+  - Included in profiling reports
+
+### Fixed
+
+- **HumanEval Git Detection** (#335): Fixed git diff not detecting newly created files
+  - Added fallback to unfiltered git diff when filtered diff is empty
+  - Resolves issue where `solution.py` wasn't detected in HumanEval tasks
+  - Applied same pattern to both Docker and local execution paths
+- **Cost Calculation** (#330): Use total_cost_usd from API to include cache tokens
+  - Accurate cost tracking including prompt caching discounts
+  - Prevents underreporting of actual API costs
+
+## [0.4.0] - 2026-01-28
+
+### Added
+
+- **MCP Server Log Capture** (#287): Comprehensive logging for MCP server debugging
+  - Automatic capture of MCP server stdout/stderr to `~/.mcpbr_state/logs/{instance_id}_mcp.log`
+  - MCP log path included in all error messages for easy access
+  - Real-time log writing during task execution for troubleshooting
+  - Proper cleanup in finally block to ensure logs are always saved
+- **Separate MCP Registration Phase** (#285): Better error visibility for MCP initialization
+  - MCP server registration now separate from Claude CLI execution with its own 60s timeout
+  - Detailed logging showing exact MCP registration command and arguments
+  - Clear success/failure messages for MCP server startup
+  - Early detection of MCP server initialization issues
+- **MCP Timeout Configuration** (#286): Configurable timeouts for MCP servers
+  - `startup_timeout_ms` field for MCP server startup (default: 60 seconds)
+  - `tool_timeout_ms` field for long-running MCP tool calls (default: 15 minutes)
+  - Environment variables passed to Claude CLI for timeout configuration
+  - Documented recommended timeouts for different server types
+- **Integration Tests** (#286): Comprehensive test coverage for MCP logging features
+  - Tests for log file creation and cleanup
+  - Tests for error message formatting with log paths
+  - Tests for stdout/stderr capture in error messages
+  - Tests for timeout handling and temp file cleanup
+
+### Changed
+
+- **Improved Error Messages** (#285, #286): Much more detailed MCP-related error reporting
+  - Registration failures now show exact command, exit code, and stderr
+  - MCP stdout included in error messages for better diagnostics
+  - Timeouts distinguish between init timeout vs execution timeout
+  - 0-iteration failures include hint to check MCP server logs
+  - All MCP errors include log file path for debugging
+- **Better Resource Cleanup** (#286): Temp files cleaned up on all exit paths
+  - API keys in env files cleaned up before early returns
+  - Cleanup happens on registration failure, timeout, and normal exit
+  - Cleanup errors logged when verbose mode enabled
+- **Documentation** (#286): Added comprehensive MCP debugging section
+  - MCP server log location and access instructions
+  - MCP tool timeout configuration examples
+  - Recommended timeout values by server type
+  - Registration failure troubleshooting steps
+  - Examples of new error message formats
+  - `startup_timeout_ms` and `tool_timeout_ms` configuration examples
+
+### Security
+
+- **Shell Injection Prevention** (#286): All MCP commands properly escaped
+  - All MCP command arguments now quoted with `shlex.quote()`
+  - Environment variable values safely escaped
+  - Handles spaces and special characters correctly in paths
+  - Path traversal prevention in MCP log filenames
+
+### Fixed
+
+- **Resource Leaks** (#286): Fixed temp file leaks on MCP registration failure
+  - Temp files containing `ANTHROPIC_API_KEY` now cleaned up before early returns
+  - Fixed cleanup bypass in registration failure and timeout paths
+- **Unused Variables** (#286): Fixed RUF059 lint warnings
+  - `mcp_stdout` now used in error messages instead of discarded
+
+## [0.3.29] - 2026-01-26
+
+### Added
+
+- **XML Output Format** (#301): Convert results to XML format with `mcpbr export xml` (closes #13)
+  - XML export for results data
+  - Easy integration with XML-based tools
+- **One-Liner Install** (#302): Simplified installation with auto-init
+  - `curl -sSL https://raw.githubusercontent.com/greynewell/mcpbr/main/install.sh | bash`
+  - Automatically installs and runs quick test
+  - Improved onboarding experience
+
+### Documentation
+
+- Expanded Claude Code plugin installation options with multiple methods (#275)
+
+## [0.3.28] - 2026-01-26
+
+### Added
+
+- **Default Logging** (#295): Detailed execution logs enabled by default
+  - Logs automatically saved to `output_dir/logs/` to prevent data loss
+  - Critical for expensive evaluation runs ($50+)
+  - Add `--disable-logs` or `disable_logs: true` to opt-out
+- **Consolidated Output Directory** (#296): All outputs in single timestamped directory
+  - Default: `.mcpbr_run_YYYYMMDD_HHMMSS/`
+  - Contains: config.yaml, evaluation_state.json, logs/, README.txt
+  - Easy archiving: `tar -czf results.tar.gz .mcpbr_run_*`
+  - Customizable with `--output-dir` flag or `output_dir` config option
+
+### Fixed
+
+- Fixed timeout statistics calculation bug
+
+## [0.3.27] - 2026-01-24
+
+### Fixed
+
+- **TypeError in Log Formatter** (#294): Fixed Read tool offset/limit parameter handling
+  - Changed defaults from empty string to None
+  - Added proper type conversion before arithmetic operations
+  - Resolves intermittent failures affecting ~5-7% of SWE-bench tasks
+  - Added comprehensive regression tests
+
+## [0.3.26] - 2026-01-23
+
+### Added
+
+- **MCP Observability** (#292): Enhanced logging and error reporting for MCP servers
+  - Better visibility into MCP server behavior
+  - Improved error messages for debugging
+- **MCP Pre-Flight Health Checks** (#293): Validate MCP server before evaluation
+  - Early detection of MCP server issues
+  - Prevent wasted evaluation time on misconfigured servers
+
+## [0.3.25] - 2026-01-23
+
+### Infrastructure
+
+- Testing automated release workflow
+
+## [0.3.24] - 2026-01-23
+
+### Added
+
+- **Automated Release Workflow**: One-command releases via GitHub Actions
+  - Command: `gh workflow run release.yml -f version_bump=patch`
+  - Automatic version syncing across all package files
+  - Integrated with PyPI and npm publication
+  - New [Release Guide](docs/RELEASE.md) and [AI Agent Guide](docs/AI_AGENT_GUIDE.md)
+
+### Fixed
+
+- **Docker TypeError** (#290): Convert instance_id to string in Docker labels
+  - Prevents TypeError when instance_id is not a string
+  - Improves Docker label handling robustness
+
+### Documentation
+
+- Added release documentation links to README
+
+## [0.3.23] - 2026-01-23
+
+### Added
+
+- **Comprehensive MCP Initialization Logging** (#286): Better error handling and logging
+  - Detailed logging for MCP server initialization
+  - Enhanced error messages for troubleshooting
+  - Improved timeout handling
+
+### Infrastructure
+
+- Fixed version sync across all package files
+
+## [0.3.22] - 2026-01-22
+
+### Fixed
+
+- npm package now correctly includes README.md (removed NPM.md experiment)
+  - Previous attempt to use separate NPM.md did not work
+  - Package now displays main README on npm registry
+
+## [0.3.21] - 2026-01-22
+
+### Changed
+
+- **npm Package Documentation**: Attempted to use NPM.md for npm-specific docs
+  - Configured npm package to display NPM.md on registry
+  - Added npm installation instructions to README quick-start
+  - Added dedicated npm installation section before pip instructions
+
+## [0.3.20] - 2026-01-22
+
+### Infrastructure
+
+- **npm Publishing**: Updated unscoped CLI package name to `mcpbr-cli`
+  - Unscoped CLI package is now `mcpbr-cli` (command is still `mcpbr`)
+  - Scoped package remains `@greynewell/mcpbr`
+  - Plugin packages remain `mcpbr-claude-plugin` (unscoped) and `@greynewell/mcpbr-claude-plugin` (scoped)
+  - Updated documentation to reflect new package names
+  - All packages provide the same CLI command: `mcpbr`
+
+## [0.3.19] - 2026-01-22
+
+### Changed
+
+- **Documentation**: Updated all documentation to prefer unscoped npm package names
+  - Primary installation method now uses `mcpbr-cli` instead of `@greynewell/mcpbr`
+  - Plugin installation now uses `mcpbr-claude-plugin` instead of `@greynewell/mcpbr-claude-plugin`
+  - Scoped versions still available and mentioned as alternatives
+  - Updated NPM.md, .claude-plugin/README.md with new package references
+
+## [0.3.18] - 2026-01-22
+
+### Added
+
+- **Plugin Marketplace**: Added `marketplace.json` for Claude Code plugin manager installation (closes #266)
+  - Proper marketplace manifest with owner information
+  - GitHub source configuration for plugin distribution
+  - Automatic installation via Claude Code plugin manager
+- **Plugin Documentation**: Comprehensive documentation for the Claude Code plugin (closes #273)
+  - Installation guide with multiple methods
+  - Complete skills reference for all three skills
+  - Architecture explanation and execution flow
+  - Troubleshooting section with common issues
+  - FAQ covering plugin usage and development
+- **Plugin Validation**: Automated validation of plugin manifests in CI
+  - Python-based validation script for plugin.json and marketplace.json
+  - Checks required fields, structure, and schema compliance
+  - Runs on every PR to prevent breaking changes
+- **Community Guidelines**: Added Code of Conduct for project contributors
+  - Contributor Covenant code of conduct
+  - Guidelines for respectful collaboration
+
+### Changed
+
+- **Version Sync**: Enhanced version sync script to include marketplace.json
+  - Syncs version across plugin.json, marketplace.json, and package.json files
+  - Updates both root and nested plugin versions
+  - Ensures consistency across all distribution channels
+- **CI/CD**: Updated CI to validate all version files are synced
+  - Checks plugin.json, marketplace.json, package.json versions
+  - Prevents version drift across npm packages
+
+### Infrastructure
+
+- **npm Publishing**: First official npm package releases
+  - **Scoped packages**:
+    - `@greynewell/mcpbr` - CLI wrapper for cross-platform installation
+    - `@greynewell/mcpbr-claude-plugin` - Claude Code plugin package
+  - **Unscoped packages** (same content, easier names):
+    - `mcpbr` - CLI wrapper for cross-platform installation
+    - `mcpbr-claude-plugin` - Claude Code plugin package
+  - Automated publishing workflow on GitHub releases
+  - Cross-publishes to both scoped and unscoped names for maximum discoverability
+
+## [0.3.17] - 2026-01-22
+
+### Added
+
+- **Claude Code Plugin**: Added specialized Claude Code plugin with custom skills for enhanced MCP server evaluation
+  - Custom skills tailored for benchmarking workflows (`benchmark-swe-lite`, `mcpbr-config`, `mcpbr-eval`)
+  - Integration with Claude Code CLI for improved agent capabilities
+  - Published as npm package `@greynewell/mcpbr-claude-plugin`
+- **npm CLI Wrapper**: Added Node.js wrapper (`bin/mcpbr.js`) for cross-platform npm installation
+  - Published as `@greynewell/mcpbr` on npm
+  - Automatic detection and invocation of Python CLI
+  - Supports npx usage: `npx @greynewell/mcpbr`
+
+### Fixed
+
+- Improved pre-commit configuration for consistent linting in CI
+- Addressed code quality issues from CodeRabbit review
+- Added `__main__.py` to enable `python -m mcpbr` execution
+- Fixed `--version` flag handling at CLI group level
+
+## [0.3.16] - 2026-01-22
+
+### Fixed
+
+- MCP Docker context preservation: Use `su` without login flag to preserve project context for MCP servers
+
+## [0.3.15] - 2026-01-21
+
+### Added
+
+- **CSV Export**: New `mcpbr export csv` command to convert results to CSV format (closes #11)
+  - Export evaluation results with customizable columns
+  - Supports filtering by status (pass/fail/error)
+  - Easy integration with spreadsheet tools
+
+## [0.3.14] - 2026-01-21
+
+### Added
+
+- **Streaming Results Support**: Real-time streaming of evaluation results to SSE endpoint (closes #259)
+  - Enable with `--stream-to` flag or `stream_to` config option
+  - Immediate visibility into evaluation progress
+  - Compatible with web dashboards and monitoring tools
+
+## [0.3.13] - 2026-01-21
+
+### Added
+
+- **Incremental Evaluation**: Only re-run failed tasks with `--incremental` flag (closes #258)
+  - Automatically resume from previous failed evaluations
+  - Skip already passing tasks to save time and cost
+  - Useful for iterating on fixes or retrying flaky tests
+
+## [0.3.12] - 2026-01-20
+
+### Added
+
+- **Configuration Validation Schema**: Comprehensive JSON schema validation for config files (closes #98)
+  - Validate config files with `mcpbr config validate`
+  - Clear error messages for invalid configurations
+  - IDE autocompletion support via schema
+
+## [0.3.11] - 2026-01-20
+
+### Added
+
+- **Benchmark Result Caching**: Cache evaluation results to avoid redundant runs (closes #255)
+  - Automatic caching of task evaluations
+  - Significant speed improvements for repeated runs
+  - Cache invalidation based on configuration changes
+
+## [0.3.10] - 2026-01-19
+
+### Added
+
+- **Config Inheritance**: Support for `extends` field in configuration files (closes #106)
+  - Reuse common settings across multiple config files
+  - Override specific fields while inheriting base configuration
+  - Supports relative and absolute paths
+
+## [0.3.9] - 2026-01-19
+
+### Added
+
+- **Smoke Test Mode**: New `--smoke-test` flag to validate setup without full evaluation (closes #253)
+  - Quickly verify environment configuration
+  - Test single task instance to ensure everything works
+  - Useful for CI/CD pipeline validation
+- **Incremental Saving**: Automatically save results after each task completion (closes #252)
+  - Prevents data loss on crashes or interruptions
+  - Resume evaluations from last completed task
+  - Intermediate results available during long-running evaluations
+
+## [0.3.8] - 2026-01-18
+
+### Added
+
+- **Environment Variable Support**: Use environment variables in config files with `${VAR}` syntax (closes #251)
+  - Reference secrets and dynamic values
+  - Example: `api_key: ${ANTHROPIC_API_KEY}`
+  - Supports default values: `${VAR:-default}`
+
+### Fixed
+
+- Documentation: Fixed broken links in FAQ
+
+## [0.3.7] - 2026-01-18
+
+### Added
+
+- **Best Practices Guide**: Comprehensive guide for effective MCP server evaluation (closes #199)
+  - Configuration optimization tips
+  - Performance tuning recommendations
+  - Common pitfalls and solutions
+
+## [0.3.6] - 2026-01-17
+
+### Added
+
+- **Example Configurations Repository**: Added collection of example config files (closes #200)
+  - Ready-to-use configurations for common scenarios
+  - Templates for different providers and harnesses
+  - Documented best practices
+
+## [0.3.5] - 2026-01-17
+
+### Added
+
+- **FAQ Documentation**: Comprehensive frequently asked questions section (closes #204)
+  - Common issues and solutions
+  - Setup troubleshooting
+  - Performance optimization tips
+
+## [0.3.3] - 2026-01-17
+
+### Added
+
+- **Docker Cleanup Enhancements**: Comprehensive Docker resource cleanup on errors (closes #194)
+  - Automatic cleanup of containers on failure
+  - Prevention of resource leaks
+  - Improved error handling
+
+## [0.3.2] - 2026-01-17
+
+### Added
+
+- **Tool Coverage Reporting**: Analyze which MCP tools were used during evaluation (closes #225)
+  - Track tool usage frequency
+  - Identify unused tools
+  - Coverage metrics in results JSON
+
+## [0.3.1] - 2026-01-17
+
+### Added
+
+- **MCPToolBench++ Integration**: Support for MCPToolBench++ benchmark (closes #223)
+  - Evaluate MCP servers on standardized tool usage tasks
+  - Integration with MCPToolBench++ dataset
+  - Comprehensive tool evaluation capabilities
+
+## [0.3.0] - 2026-01-17
+
+### Added
+
+- **Regression Detection**: Automated detection of performance regressions (closes #65)
+  - Compare results against baseline
+  - Configurable regression thresholds
+  - Alert notifications for detected regressions
+- **YAML Export**: Convert results to YAML format with `mcpbr export yaml` (closes #12)
+  - Human-readable output format
+  - Easy integration with other tools
+- **Enhanced Agent Documentation**: Comprehensive AGENTS.md with guidelines for AI agents
+
+### Changed
+
+- Expanded documentation with comprehensive guidelines
+- Updated roadmap with v1.0 milestones
+
+## [0.2.3] - 2026-01-17
+
+### Added
+
+- **v1.0 Roadmap**: Comprehensive roadmap section in README
+  - Planned features and improvements
+  - Timeline and milestones
+
+### Fixed
+
+- Improved MCP tool error handling and logging (closes #10)
+  - Better error messages for tool failures
+  - Enhanced debugging capabilities
+
+## [0.2.2] - 2026-01-17
+
+### Changed
+
+- Version bump for release consistency
+
+## [0.2.1] - 2026-01-17
+
+### Fixed
+
+- Prevent dataset configuration override issues
+  - Ensure dataset settings are properly applied
+  - Fix configuration precedence
+
+### Documentation
+
+- Improved README with one-line install instructions
+
 ## [0.2.0] - 2026-01-17
 
 ### Added
@@ -84,5 +588,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--no-prebuilt` CLI flag to disable pre-built images and build from scratch
 - Network access for containers to enable API calls from within Docker
 
+[0.4.2]: https://github.com/greynewell/mcpbr/releases/tag/v0.4.2
+[0.4.1]: https://github.com/greynewell/mcpbr/releases/tag/v0.4.1
+[0.4.0]: https://github.com/greynewell/mcpbr/releases/tag/v0.4.0
+[0.3.29]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.29
+[0.3.28]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.28
+[0.3.27]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.27
+[0.3.26]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.26
+[0.3.25]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.25
+[0.3.24]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.24
+[0.3.23]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.23
+[0.3.22]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.22
+[0.3.21]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.21
+[0.3.20]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.20
+[0.3.19]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.19
+[0.3.18]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.18
+[0.3.17]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.17
+[0.3.16]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.16
+[0.3.15]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.15
+[0.3.14]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.14
+[0.3.13]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.13
+[0.3.12]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.12
+[0.3.11]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.11
+[0.3.10]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.10
+[0.3.9]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.9
+[0.3.8]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.8
+[0.3.7]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.7
+[0.3.6]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.6
+[0.3.5]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.5
+[0.3.3]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.3
+[0.3.2]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.2
+[0.3.1]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.1
+[0.3.0]: https://github.com/greynewell/mcpbr/releases/tag/v0.3.0
+[0.2.3]: https://github.com/greynewell/mcpbr/releases/tag/v0.2.3
+[0.2.2]: https://github.com/greynewell/mcpbr/releases/tag/v0.2.2
+[0.2.1]: https://github.com/greynewell/mcpbr/releases/tag/v0.2.1
 [0.2.0]: https://github.com/greynewell/mcpbr/releases/tag/v0.2.0
 [0.1.0]: https://github.com/greynewell/mcpbr/releases/tag/v0.1.0

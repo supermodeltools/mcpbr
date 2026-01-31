@@ -5,9 +5,11 @@ faq:
   - q: "What does 'resolved' mean in mcpbr results?"
     a: "A task is 'resolved' when the agent's patch passes all FAIL_TO_PASS tests (the tests that should pass after the fix) and all PASS_TO_PASS tests (regression tests that should continue passing)."
   - q: "What output formats does mcpbr support?"
-    a: "mcpbr supports console output with summary tables, JSON output (--output flag) with full structured data, Markdown reports (--report flag), and per-instance JSON logs (--log-dir flag)."
+    a: "mcpbr supports console output with summary tables, JSON output (--output flag), YAML output (--output-yaml flag) with full structured data, Markdown reports (--report flag), and per-instance JSON logs (--log-dir flag)."
   - q: "How do I analyze mcpbr results?"
     a: "Use the JSON output for programmatic analysis. Key fields include summary.mcp.rate, summary.baseline.rate, and per-task results with patch_generated, resolved, tokens, iterations, and tool_usage data."
+  - q: "What is tool coverage and why is it useful?"
+    a: "Tool coverage shows which MCP tools are actually being used vs. available. It helps identify underutilized tools, understand tool discoverability, and optimize your MCP server by focusing on the most valuable tools for solving tasks."
 ---
 
 # Understanding Evaluation Results
@@ -64,6 +66,30 @@ Evaluation Results
 +-----------------+-----------+----------+
 
 Improvement: +60.0%
+
+Tool Coverage Analysis
+
+            MCP Tool Usage
++------------------+---------+
+| Metric           | Value   |
++------------------+---------+
+| Available Tools  | 15      |
+| Used Tools       | 8       |
+| Coverage Rate    | 53.3%   |
++------------------+---------+
+
+Most Used Tools:
+  Bash: 127
+  Read: 98
+  Grep: 45
+  Write: 23
+  Edit: 12
+
+Unused Tools (7):
+  WebFetch
+  NotebookEdit
+  Skill
+  ... and 4 more
 
 Per-Task Results
 +------------------------+------+----------+-------+
@@ -123,7 +149,37 @@ mcpbr run -c config.yaml -o results.json
       "total": 25,
       "rate": 0.20
     },
-    "improvement": "+60.0%"
+    "improvement": "+60.0%",
+    "tool_coverage": {
+      "total_available": 15,
+      "total_used": 8,
+      "coverage_rate": 0.533,
+      "unused_tools": ["WebFetch", "NotebookEdit", "Skill", "WebSearch", "Task", "TodoWrite", "Agent"],
+      "most_used": {
+        "Bash": 127,
+        "Read": 98,
+        "Grep": 45,
+        "Write": 23,
+        "Edit": 12,
+        "Glob": 8,
+        "mcp__filesystem__read_file": 5,
+        "mcp__filesystem__write_file": 2
+      },
+      "least_used": {
+        "mcp__filesystem__write_file": 2,
+        "mcp__filesystem__read_file": 5
+      },
+      "all_tool_usage": {
+        "Bash": 127,
+        "Read": 98,
+        "Grep": 45,
+        "Write": 23,
+        "Edit": 12,
+        "Glob": 8,
+        "mcp__filesystem__read_file": 5,
+        "mcp__filesystem__write_file": 2
+      }
+    }
   },
   "tasks": [...]
 }
@@ -194,6 +250,144 @@ Each task includes detailed metrics:
 | `fail_to_pass` | Tests that should now pass |
 | `pass_to_pass` | Regression tests |
 | `error` | Error message if failed |
+
+### Tool Coverage Metrics
+
+The `tool_coverage` section in the summary provides insights into which tools are being used:
+
+| Field | Description |
+|-------|-------------|
+| `total_available` | Total number of tools available to the agent (built-in + MCP) |
+| `total_used` | Number of distinct tools actually called during evaluation |
+| `coverage_rate` | Percentage of available tools used (0.0 to 1.0) |
+| `unused_tools` | List of tools that were never called |
+| `most_used` | Dictionary of most frequently used tools with call counts |
+| `least_used` | Dictionary of least frequently used tools with call counts |
+| `all_tool_usage` | Complete breakdown of all tool usage across all tasks |
+
+This helps identify:
+
+- Which MCP tools are actually being utilized
+- Whether certain tools are being ignored (low discoverability)
+- The most valuable tools for solving tasks
+- Opportunities to simplify tool offerings
+
+## YAML Output
+
+Save results in YAML format with `--output-yaml`:
+
+```bash
+mcpbr run -c config.yaml -y results.yaml
+```
+
+YAML output provides the same structured data as JSON but in a human-readable, hierarchical format that's ideal for:
+
+- **DevOps Integration**: Easy to parse in CI/CD pipelines
+- **Configuration Management**: Natural fit for tools like Ansible, Kubernetes
+- **Version Control**: More readable diffs when committed to Git
+- **Manual Review**: Easier to read and edit than JSON
+
+### Example YAML Output
+
+```yaml
+metadata:
+  timestamp: '2026-01-17T07:23:39.871437+00:00'
+  config:
+    model: sonnet
+    provider: anthropic
+    agent_harness: claude-code
+    dataset: SWE-bench/SWE-bench_Lite
+    sample_size: 25
+    timeout_seconds: 600
+    max_iterations: 30
+  mcp_server:
+    command: npx
+    args:
+    - -y
+    - '@modelcontextprotocol/server-filesystem'
+    - '{workdir}'
+summary:
+  mcp:
+    resolved: 8
+    total: 25
+    rate: 0.32
+  baseline:
+    resolved: 5
+    total: 25
+    rate: 0.2
+  improvement: +60.0%
+tasks:
+- instance_id: astropy__astropy-12907
+  mcp:
+    patch_generated: true
+    tokens:
+      input: 115
+      output: 6542
+    iterations: 30
+    tool_calls: 72
+    tool_usage:
+      TodoWrite: 4
+      Task: 1
+      Glob: 4
+      Grep: 11
+      Bash: 27
+      Read: 22
+      Write: 2
+      Edit: 1
+    resolved: true
+    patch_applied: true
+    fail_to_pass:
+      passed: 2
+      total: 2
+    pass_to_pass:
+      passed: 10
+      total: 10
+  baseline:
+    patch_generated: true
+    tokens:
+      input: 63
+      output: 7615
+    iterations: 30
+    tool_calls: 57
+    resolved: true
+    patch_applied: true
+```
+
+### Using YAML in CI/CD Pipelines
+
+YAML output is particularly useful in automated workflows:
+
+```yaml
+# GitHub Actions example
+- name: Run mcpbr evaluation
+  run: mcpbr run -c config.yaml -y results.yaml
+
+- name: Parse results
+  run: |
+    resolution_rate=$(yq '.summary.mcp.rate' results.yaml)
+    echo "MCP Resolution Rate: $resolution_rate"
+
+    if (( $(echo "$resolution_rate > 0.5" | bc -l) )); then
+      echo "✓ Performance threshold met"
+    else
+      echo "✗ Performance below threshold"
+      exit 1
+    fi
+```
+
+### Combining Output Formats
+
+You can save results in multiple formats simultaneously:
+
+```bash
+# Save all three formats
+mcpbr run -c config.yaml -o results.json -y results.yaml -r report.md
+```
+
+This allows you to:
+- Use JSON for programmatic analysis
+- Use YAML for DevOps integration
+- Use Markdown for team reviews
 
 ## Markdown Report
 

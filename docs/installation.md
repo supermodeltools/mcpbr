@@ -85,6 +85,30 @@ If Docker isn't running, start it from your system's application launcher or:
 pip install mcpbr
 ```
 
+### From npm
+
+[![npm package](https://img.shields.io/npm/v/mcpbr-cli.svg)](https://www.npmjs.com/package/mcpbr-cli)
+
+mcpbr is also available as an npm package for easy integration with Node.js workflows:
+
+```bash
+# Run with npx (no installation)
+npx mcpbr-cli run -c config.yaml
+
+# Or install globally
+npm install -g mcpbr-cli
+mcpbr run -c config.yaml
+```
+
+!!! info "Package Details"
+    **Package name**: [`mcpbr-cli`](https://www.npmjs.com/package/mcpbr-cli)
+
+    The npm package is a wrapper that requires Python 3.11+ and the mcpbr Python package to be installed separately:
+    ```bash
+    pip install mcpbr
+    npm install -g mcpbr-cli
+    ```
+
 ### From Source
 
 ```bash
@@ -172,6 +196,35 @@ See [Contributing](contributing.md) for more details.
 
 ## Next Steps
 
+After installation, you have two options to get started:
+
+**Option 1: Use Example Configurations (Fastest)**
+
+Jump straight in with our ready-to-use examples:
+
+```bash
+# Set your API key
+export ANTHROPIC_API_KEY="your-api-key"
+
+# Run your first evaluation
+mcpbr run -c examples/quick-start/getting-started.yaml -v
+```
+
+Explore **25+ example configurations** in the [`examples/`](https://github.com/greynewell/mcpbr/tree/main/examples) directory covering benchmarks, MCP servers, and common scenarios. See the [Examples README](https://github.com/greynewell/mcpbr/tree/main/examples/README.md) for the complete guide.
+
+**Option 2: Generate Custom Configuration**
+
+Create your own configuration:
+
+```bash
+mcpbr init
+# Edit mcpbr.yaml
+mcpbr run -c mcpbr.yaml -v
+```
+
+**Continue Learning:**
+
 - [Quick Start](index.md) - Run your first evaluation
 - [Configuration](configuration.md) - Configure your MCP server
+- [Examples](https://github.com/greynewell/mcpbr/tree/main/examples) - Browse example configurations
 - [CLI Reference](cli.md) - Explore all commands

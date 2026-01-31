@@ -2,6 +2,8 @@
 
 import asyncio
 import atexit
+import datetime
+import logging
 import os
 import signal
 import tempfile
@@ -12,11 +14,20 @@ from typing import Any
 
 import docker
 from docker.models.containers import Container
+from docker.models.networks import Network
+from docker.models.volumes import Volume
 
 MCPBR_LABEL = "mcpbr"
 MCPBR_INSTANCE_LABEL = "mcpbr.instance"
+MCPBR_SESSION_LABEL = "mcpbr.session"
+MCPBR_TIMESTAMP_LABEL = "mcpbr.timestamp"
 
 SWEBENCH_IMAGE_REGISTRY = "ghcr.io/epoch-research/swe-bench.eval"
+
+# Default retention policy: clean up resources older than 24 hours
+DEFAULT_RETENTION_HOURS = 24
+
+logger = logging.getLogger(__name__)
 
 _active_managers: list["DockerEnvironmentManager"] = []
 
@@ -70,6 +81,45 @@ def get_swebench_image_name(instance_id: str) -> str:
 
 
 @dataclass
+class CleanupReport:
+    """Report of cleaned resources."""
+
+    containers_removed: list[str] = field(default_factory=list)
+    volumes_removed: list[str] = field(default_factory=list)
+    networks_removed: list[str] = field(default_factory=list)
+    temp_dirs_cleaned: int = 0
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def total_removed(self) -> int:
+        """Total number of resources removed."""
+        return len(self.containers_removed) + len(self.volumes_removed) + len(self.networks_removed)
+
+    def __str__(self) -> str:
+        """Format cleanup report as string."""
+        lines = ["Cleanup Report:"]
+        if self.containers_removed:
+            lines.append(f"  Containers: {len(self.containers_removed)} removed")
+            for name in self.containers_removed[:5]:
+                lines.append(f"    - {name}")
+            if len(self.containers_removed) > 5:
+                lines.append(f"    ... and {len(self.containers_removed) - 5} more")
+        if self.volumes_removed:
+            lines.append(f"  Volumes: {len(self.volumes_removed)} removed")
+        if self.networks_removed:
+            lines.append(f"  Networks: {len(self.networks_removed)} removed")
+        if self.temp_dirs_cleaned:
+            lines.append(f"  Temp directories: {self.temp_dirs_cleaned} cleaned")
+        if self.errors:
+            lines.append(f"  Errors: {len(self.errors)}")
+            for error in self.errors[:3]:
+                lines.append(f"    - {error}")
+            if len(self.errors) > 3:
+                lines.append(f"    ... and {len(self.errors) - 3} more")
+        return "\n".join(lines)
+
+
+@dataclass
 class TaskEnvironment:
     """Represents an isolated environment for a SWE-bench task."""
 
@@ -79,6 +129,8 @@ class TaskEnvironment:
     instance_id: str
     uses_prebuilt: bool = field(default=False)
     claude_cli_installed: bool = field(default=False)
+    _temp_dir: tempfile.TemporaryDirectory[str] | None = field(default=None, repr=False)
+    _manager: "DockerEnvironmentManager | None" = field(default=None, repr=False)
 
     async def exec_command(
         self,
@@ -231,12 +283,28 @@ class TaskEnvironment:
         return Path(full_path).read_text()
 
     async def cleanup(self) -> None:
-        """Stop and remove the container."""
+        """Stop and remove the container and clean up temp directory.
+
+        This aggressively cleans up resources immediately after task completion
+        to prevent disk space exhaustion when running many tasks.
+        """
+        # Stop and remove container
         try:
             self.container.stop(timeout=5)
             self.container.remove(force=True)
         except Exception:
             pass
+
+        # Clean up temp directory immediately
+        if self._temp_dir is not None:
+            try:
+                self._temp_dir.cleanup()
+            except Exception:
+                pass
+
+            # Remove from manager's list to avoid double cleanup
+            if self._manager is not None and self._temp_dir in self._manager._temp_dirs:
+                self._manager._temp_dirs.remove(self._temp_dir)
 
 
 class DockerEnvironmentManager:
@@ -256,7 +324,10 @@ class DockerEnvironmentManager:
         self._fallback_image_built = False
         self._temp_dirs: list[tempfile.TemporaryDirectory[str]] = []
         self._containers: list[Container] = []
+        self._volumes: list[Volume] = []
+        self._networks: list[Network] = []
         self._session_id = uuid.uuid4().hex[:8]
+        self._session_timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
         _active_managers.append(self)
 
     async def _try_pull_prebuilt(self, instance_id: str) -> str | None:
@@ -365,7 +436,9 @@ class DockerEnvironmentManager:
                 remove=False,
                 labels={
                     MCPBR_LABEL: "true",
-                    MCPBR_INSTANCE_LABEL: instance_id,
+                    MCPBR_INSTANCE_LABEL: str(instance_id),
+                    MCPBR_SESSION_LABEL: self._session_id,
+                    MCPBR_TIMESTAMP_LABEL: self._session_timestamp,
                 },
             )
             return container
@@ -381,6 +454,8 @@ class DockerEnvironmentManager:
             instance_id=instance_id,
             uses_prebuilt=uses_prebuilt,
             claude_cli_installed=False,
+            _temp_dir=temp_dir,
+            _manager=self,
         )
 
         if uses_prebuilt:
@@ -502,40 +577,90 @@ class DockerEnvironmentManager:
         if exit_code != 0:
             raise RuntimeError(f"Failed to checkout {base_commit}: {stderr}")
 
-    def cleanup_all_sync(self) -> None:
+    def cleanup_all_sync(self, report: bool = False) -> CleanupReport:
         """Synchronously clean up all containers and temporary directories.
 
         Used by signal handlers and atexit.
+
+        Args:
+            report: If True, return detailed cleanup report.
+
+        Returns:
+            CleanupReport with details of cleaned resources.
         """
+        cleanup_report = CleanupReport()
+
+        # Clean up containers
         for container in self._containers:
             try:
+                container_name = container.name or container.short_id
                 container.stop(timeout=5)
                 container.remove(force=True)
-            except Exception:
-                pass
+                cleanup_report.containers_removed.append(container_name)
+            except Exception as e:
+                cleanup_report.errors.append(f"Failed to remove container: {e}")
         self._containers.clear()
 
+        # Clean up volumes
+        for volume in self._volumes:
+            try:
+                volume_name = volume.name
+                volume.remove(force=True)
+                cleanup_report.volumes_removed.append(volume_name)
+            except Exception as e:
+                cleanup_report.errors.append(f"Failed to remove volume: {e}")
+        self._volumes.clear()
+
+        # Clean up networks
+        for network in self._networks:
+            try:
+                network_name = network.name
+                network.remove()
+                cleanup_report.networks_removed.append(network_name)
+            except Exception as e:
+                cleanup_report.errors.append(f"Failed to remove network: {e}")
+        self._networks.clear()
+
+        # Clean up temp directories
         for temp_dir in self._temp_dirs:
             try:
                 temp_dir.cleanup()
-            except Exception:
-                pass
+                cleanup_report.temp_dirs_cleaned += 1
+            except Exception as e:
+                cleanup_report.errors.append(f"Failed to cleanup temp dir: {e}")
         self._temp_dirs.clear()
 
         if self in _active_managers:
             _active_managers.remove(self)
 
-    async def cleanup_all(self) -> None:
-        """Clean up all containers and temporary directories."""
+        if report and cleanup_report.total_removed > 0:
+            logger.info(str(cleanup_report))
+
+        return cleanup_report
+
+    async def cleanup_all(self, report: bool = False) -> CleanupReport:
+        """Clean up all containers and temporary directories.
+
+        Args:
+            report: If True, return detailed cleanup report.
+
+        Returns:
+            CleanupReport with details of cleaned resources.
+        """
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.cleanup_all_sync)
+        return await loop.run_in_executor(None, self.cleanup_all_sync, report)
 
 
-def cleanup_orphaned_containers(dry_run: bool = False) -> list[str]:
+def cleanup_orphaned_containers(
+    dry_run: bool = False, force: bool = False, retention_hours: int | None = None
+) -> list[str]:
     """Find and remove orphaned mcpbr containers.
 
     Args:
         dry_run: If True, only list containers without removing them.
+        force: If True, remove all containers regardless of age.
+        retention_hours: Only remove containers older than this many hours.
+                        Defaults to DEFAULT_RETENTION_HOURS if not specified.
 
     Returns:
         List of container names/IDs that were (or would be) removed.
@@ -543,19 +668,142 @@ def cleanup_orphaned_containers(dry_run: bool = False) -> list[str]:
     client = docker.from_env()
     removed: list[str] = []
 
+    if retention_hours is None:
+        retention_hours = DEFAULT_RETENTION_HOURS
+
     containers = client.containers.list(
         all=True,
         filters={"label": f"{MCPBR_LABEL}=true"},
     )
 
+    now = datetime.datetime.now(datetime.timezone.utc)
+
     for container in containers:
         name = container.name or container.short_id
+
+        # Check age if not forcing
+        if not force and retention_hours > 0:
+            timestamp_str = container.labels.get(MCPBR_TIMESTAMP_LABEL)
+            if timestamp_str:
+                try:
+                    timestamp = datetime.datetime.fromisoformat(timestamp_str)
+                    age_hours = (now - timestamp).total_seconds() / 3600
+                    if age_hours < retention_hours:
+                        continue  # Skip containers newer than retention period
+                except (ValueError, TypeError):
+                    pass  # If we can't parse timestamp, proceed with removal
+
         removed.append(name)
         if not dry_run:
             try:
                 container.stop(timeout=5)
                 container.remove(force=True)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to remove container {name}: {e}")
 
     return removed
+
+
+def cleanup_orphaned_volumes(dry_run: bool = False, force: bool = False) -> list[str]:
+    """Find and remove orphaned mcpbr volumes.
+
+    Args:
+        dry_run: If True, only list volumes without removing them.
+        force: If True, force removal even if volume is in use.
+
+    Returns:
+        List of volume names that were (or would be) removed.
+    """
+    client = docker.from_env()
+    removed: list[str] = []
+
+    try:
+        volumes = client.volumes.list(filters={"label": f"{MCPBR_LABEL}=true"})
+    except Exception as e:
+        logger.warning(f"Failed to list volumes: {e}")
+        return removed
+
+    for volume in volumes:
+        volume_name = volume.name
+        removed.append(volume_name)
+        if not dry_run:
+            try:
+                volume.remove(force=force)
+            except Exception as e:
+                logger.warning(f"Failed to remove volume {volume_name}: {e}")
+
+    return removed
+
+
+def cleanup_orphaned_networks(dry_run: bool = False) -> list[str]:
+    """Find and remove orphaned mcpbr networks.
+
+    Args:
+        dry_run: If True, only list networks without removing them.
+
+    Returns:
+        List of network names that were (or would be) removed.
+    """
+    client = docker.from_env()
+    removed: list[str] = []
+
+    try:
+        networks = client.networks.list(filters={"label": f"{MCPBR_LABEL}=true"})
+    except Exception as e:
+        logger.warning(f"Failed to list networks: {e}")
+        return removed
+
+    for network in networks:
+        network_name = network.name
+        # Skip default networks
+        if network_name in ("bridge", "host", "none"):
+            continue
+        removed.append(network_name)
+        if not dry_run:
+            try:
+                network.remove()
+            except Exception as e:
+                logger.warning(f"Failed to remove network {network_name}: {e}")
+
+    return removed
+
+
+def cleanup_all_resources(
+    dry_run: bool = False,
+    force: bool = False,
+    retention_hours: int | None = None,
+) -> CleanupReport:
+    """Clean up all orphaned mcpbr Docker resources.
+
+    Args:
+        dry_run: If True, only report what would be removed.
+        force: If True, force removal of all resources.
+        retention_hours: Only remove resources older than this many hours.
+
+    Returns:
+        CleanupReport with details of cleaned resources.
+    """
+    report = CleanupReport()
+
+    # Clean up containers first (they may hold references to volumes/networks)
+    try:
+        containers = cleanup_orphaned_containers(dry_run, force, retention_hours)
+        report.containers_removed = containers
+    except Exception as e:
+        report.errors.append(f"Container cleanup failed: {e}")
+
+    # Clean up volumes
+    try:
+        volumes = cleanup_orphaned_volumes(dry_run, force)
+        report.volumes_removed = volumes
+    except Exception as e:
+        report.errors.append(f"Volume cleanup failed: {e}")
+
+    # Clean up networks
+    try:
+        networks = cleanup_orphaned_networks(dry_run)
+        report.networks_removed = networks
+    except Exception as e:
+        report.errors.append(f"Network cleanup failed: {e}")
+
+    return report

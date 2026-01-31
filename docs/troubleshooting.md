@@ -10,8 +10,8 @@ faq:
     a: "Test your MCP server independently first (e.g., 'npx -y @modelcontextprotocol/server-filesystem /tmp/test'). Check that all required environment variables are set and the command is in your PATH."
   - q: "mcpbr timed out on a task - what should I do?"
     a: "Increase timeout_seconds in your config (e.g., 600 for 10 minutes). Complex tasks may need more time, especially on emulated Docker."
-  - q: "How do I clean up orphaned Docker containers?"
-    a: "Run 'mcpbr cleanup' to find and remove orphaned containers. Use '--dry-run' first to preview what would be removed."
+  - q: "How do I clean up orphaned Docker resources?"
+    a: "Run 'mcpbr cleanup' to find and remove orphaned containers, volumes, and networks. Use '--dry-run' first to preview what would be removed. By default, it only removes resources older than 24 hours."
   - q: "Pre-built Docker image not found - is this a problem?"
     a: "mcpbr will fall back to building from scratch, which is less reliable. You can manually pull images with 'docker pull ghcr.io/epoch-research/swe-bench.eval.x86_64.INSTANCE_ID'."
   - q: "API key is not working - how do I check?"
@@ -65,19 +65,38 @@ Or disable pre-built images to always build from scratch:
 mcpbr run -c config.yaml --no-prebuilt
 ```
 
-### Orphaned Containers
+### Orphaned Docker Resources
 
-**Symptom**: Old mcpbr containers consuming resources
+**Symptom**: Old mcpbr containers, volumes, or networks consuming resources or causing "already exists" errors
 
 **Solution**:
 
 ```bash
-# Preview what would be removed
+# Preview what would be removed (resources older than 24 hours)
 mcpbr cleanup --dry-run
 
-# Remove orphaned containers
+# Remove orphaned resources with confirmation
 mcpbr cleanup
+
+# Force remove all resources immediately
+mcpbr cleanup -f
+
+# Remove only specific resource types
+mcpbr cleanup --containers-only
+mcpbr cleanup --volumes-only
+mcpbr cleanup --networks-only
+
+# Customize retention period (e.g., 48 hours)
+mcpbr cleanup --retention-hours 48
 ```
+
+**When to use**: After crashes, interruptions, or when switching evaluation configurations
+
+**Safety features**:
+- Default 24-hour retention policy prevents removing active evaluations
+- Confirmation prompt before removal (use -f to skip)
+- Dry-run mode to preview changes
+- Detailed reporting of removed resources
 
 ## Performance Issues
 
@@ -257,6 +276,113 @@ export PATH="$PATH:$(npm config get prefix)/bin"
 
 2. Check per-instance logs for tool registration
 3. Review tool_usage in results JSON
+
+### MCP Server Logs
+
+**New in v3.0.0**: mcpbr now captures MCP server logs automatically.
+
+**Log Location**: `~/.mcpbr_state/logs/{instance_id}_mcp.log`
+
+**What's captured**:
+- MCP server stdout and stderr
+- Claude CLI's MCP-related output
+- Tool call errors and timeouts
+
+**How to access**:
+
+```bash
+# View logs for a specific instance
+cat ~/.mcpbr_state/logs/django__django-11905_mcp.log
+
+# View logs for all instances
+ls ~/.mcpbr_state/logs/
+
+# Follow logs in real-time during evaluation
+tail -f ~/.mcpbr_state/logs/*.log
+```
+
+**Error messages now include log paths**:
+```text
+Error: Task execution timed out after 1200s.
+       MCP server 'supermodel' was registered successfully
+       but the agent failed to complete within the timeout.
+       MCP server logs saved to: ~/.mcpbr_state/logs/django__django-11905_mcp.log
+```
+
+### MCP Tool Timeouts
+
+**Symptom**: MCP tool calls timing out or failing with "Request failed"
+
+**Explanation**: Some MCP servers (like Supermodel's codebase analyzer) can take several minutes to respond. Claude CLI has default timeouts that may be too short.
+
+**Solution**: Configure MCP timeouts in your config file:
+
+```yaml
+mcp_server:
+  name: "supermodel"
+  command: "npx"
+  args:
+    - "-y"
+    - "@supermodeltools/mcp-server"
+    - "{workdir}"
+  startup_timeout_ms: 60000      # 60 seconds for server to start
+  tool_timeout_ms: 900000        # 15 minutes for tool calls
+  env:
+    SUPERMODEL_API_KEY: "${SUPERMODEL_API_KEY}"
+```
+
+**Recommended timeouts by server type**:
+
+| Server Type | startup_timeout_ms | tool_timeout_ms | Notes |
+|-------------|-------------------|-----------------|-------|
+| Fast (filesystem, git) | 10000 (10s) | 30000 (30s) | Local operations |
+| Medium (web search) | 30000 (30s) | 120000 (2m) | Network I/O |
+| Slow (code analysis) | 60000 (60s) | 900000 (15m) | Complex processing |
+
+**Debug steps if timeouts persist**:
+
+1. Check MCP server logs (see above)
+2. Test the tool independently:
+   ```bash
+   # For Supermodel
+   npx -y @supermodeltools/mcp-server /tmp/test
+   ```
+3. Increase task timeout to allow for multiple retries:
+   ```yaml
+   timeout_seconds: 1200  # 20 minutes
+   ```
+
+### Registration Failures
+
+**Symptom**: "MCP server registration failed" or "MCP server registration timed out"
+
+**New in v3.0.0**: Detailed error messages showing exactly what failed.
+
+**Example errors**:
+
+```text
+MCP server registration failed (exit 1):
+  npx: command not found
+```
+
+```text
+MCP server registration timed out after 60s.
+  The MCP server may have failed to start or is hanging.
+```
+
+**Solutions**:
+
+1. **Command not found**: Ensure the MCP server command is in PATH:
+   ```bash
+   which npx  # Should return a path
+   ```
+
+2. **Slow server startup**: If your server takes >60s to start, this is unusual but you can modify the registration timeout in code (default is 60s)
+
+3. **Environment variables missing**: Check MCP server logs to see what's missing:
+   ```bash
+   cat ~/.mcpbr_state/logs/{instance_id}_mcp.log
+   ```
 
 ## Evaluation Issues
 

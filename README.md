@@ -1,7 +1,11 @@
 # mcpbr
 
 ```bash
-pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v
+# One-liner install (installs + runs quick test)
+curl -sSL https://raw.githubusercontent.com/greynewell/mcpbr/main/install.sh | bash
+
+# Or install and run manually
+pip install mcpbr && mcpbr run -n 1
 ```
 
 Benchmark your MCP server against real GitHub issues. One command, hard numbers.
@@ -15,6 +19,7 @@ Benchmark your MCP server against real GitHub issues. One command, hard numbers.
 **Model Context Protocol Benchmark Runner**
 
 [![PyPI version](https://badge.fury.io/py/mcpbr.svg)](https://pypi.org/project/mcpbr/)
+[![npm version](https://badge.fury.io/js/mcpbr-cli.svg)](https://www.npmjs.com/package/mcpbr-cli)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/greynewell/mcpbr/actions/workflows/ci.yml/badge.svg)](https://github.com/greynewell/mcpbr/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -23,7 +28,7 @@ Benchmark your MCP server against real GitHub issues. One command, hard numbers.
 
 [![good first issues](https://img.shields.io/github/issues/greynewell/mcpbr/good%20first%20issue?label=good%20first%20issues&color=7057ff)](https://github.com/greynewell/mcpbr/labels/good%20first%20issue)
 [![help wanted](https://img.shields.io/github/issues/greynewell/mcpbr/help%20wanted?label=help%20wanted&color=008672)](https://github.com/greynewell/mcpbr/labels/help%20wanted)
-[![roadmap](https://img.shields.io/badge/roadmap-200%2B%20features-blue)](https://github.com/greynewell/mcpbr/projects/2)
+[![roadmap](https://img.shields.io/badge/roadmap-200%2B%20features-blue)](https://github.com/users/greynewell/projects/2)
 
 > Stop guessing if your MCP server actually helps. Get hard numbers comparing tool-assisted vs. baseline agent performance on real GitHub issues.
 
@@ -56,10 +61,14 @@ mcpbr supports multiple software engineering benchmarks through a flexible abstr
 ### SWE-bench (Default)
 Real GitHub issues requiring bug fixes and patches. The agent generates unified diffs evaluated by running pytest test suites.
 
-- **Dataset**: [SWE-bench/SWE-bench_Lite](https://huggingface.co/datasets/SWE-bench/SWE-bench_Lite)
 - **Task**: Generate patches to fix bugs
 - **Evaluation**: Test suite pass/fail
 - **Pre-built images**: Available for most tasks
+
+**Variants:**
+- **swe-bench-verified** (default) - Manually validated test cases for higher quality evaluation ([SWE-bench/SWE-bench_Verified](https://huggingface.co/datasets/SWE-bench/SWE-bench_Verified))
+- **swe-bench-lite** - 300 tasks, quick testing ([SWE-bench/SWE-bench_Lite](https://huggingface.co/datasets/SWE-bench/SWE-bench_Lite))
+- **swe-bench-full** - 2,294 tasks, complete benchmark ([SWE-bench/SWE-bench](https://huggingface.co/datasets/SWE-bench/SWE-bench))
 
 ### CyberGym
 Security vulnerabilities requiring Proof-of-Concept (PoC) exploits. The agent generates exploits that trigger crashes in vulnerable code.
@@ -70,14 +79,26 @@ Security vulnerabilities requiring Proof-of-Concept (PoC) exploits. The agent ge
 - **Difficulty levels**: 0-3 (controls context given to agent)
 - **Learn more**: [CyberGym Project](https://cybergym.cs.berkeley.edu/)
 
+### MCPToolBench++
+Large-scale MCP tool use evaluation across 45+ categories. Tests agent capabilities in tool discovery, selection, invocation, and result interpretation.
+
+- **Dataset**: [MCPToolBench/MCPToolBenchPP](https://huggingface.co/datasets/MCPToolBench/MCPToolBenchPP)
+- **Task**: Complete tasks using appropriate MCP tools
+- **Evaluation**: Tool selection accuracy, parameter correctness, sequence matching
+- **Categories**: Browser, Finance, Code Analysis, and 40+ more
+- **Learn more**: [MCPToolBench++ Paper](https://arxiv.org/pdf/2508.07575) | [GitHub](https://github.com/mcp-tool-bench/MCPToolBenchPP)
+
 ```bash
-# Run SWE-bench (default)
+# Run SWE-bench Verified (default - manually validated tests)
 mcpbr run -c config.yaml
 
-# Run CyberGym at level 2
-mcpbr run -c config.yaml --benchmark cybergym --level 2
+# Run SWE-bench Lite (300 tasks, quick testing)
+mcpbr run -c config.yaml -b swe-bench-lite
 
-# List available benchmarks
+# Run SWE-bench Full (2,294 tasks, complete benchmark)
+mcpbr run -c config.yaml -b swe-bench-full
+
+# List all available benchmarks
 mcpbr benchmarks
 ```
 
@@ -91,6 +112,85 @@ This harness runs two parallel evaluations for each task:
 2. **Baseline Agent**: LLM without tools (single-shot generation)
 
 By comparing these, you can measure the effectiveness of your MCP server for different software engineering tasks. See the **[MCP integration guide](https://greynewell.github.io/mcpbr/mcp-integration/)** for tips on testing your server.
+
+## Regression Detection
+
+mcpbr includes built-in regression detection to catch performance degradations between MCP server versions:
+
+### Key Features
+
+- **Automatic Detection**: Compare current results against a baseline to identify regressions
+- **Detailed Reports**: See exactly which tasks regressed and which improved
+- **Threshold-Based Exit Codes**: Fail CI/CD pipelines when regression rate exceeds acceptable limits
+- **Multi-Channel Alerts**: Send notifications via Slack, Discord, or email
+
+### How It Works
+
+A regression is detected when a task that passed in the baseline now fails in the current run. This helps you catch issues before deploying new versions of your MCP server.
+
+```bash
+# First, run a baseline evaluation and save results
+mcpbr run -c config.yaml -o baseline.json
+
+# Later, compare a new version against the baseline
+mcpbr run -c config.yaml --baseline-results baseline.json --regression-threshold 0.1
+
+# With notifications
+mcpbr run -c config.yaml --baseline-results baseline.json \
+  --regression-threshold 0.1 \
+  --slack-webhook https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+### Use Cases
+
+- **CI/CD Integration**: Automatically detect regressions in pull requests
+- **Version Comparison**: Compare different versions of your MCP server
+- **Performance Monitoring**: Track MCP server performance over time
+- **Team Notifications**: Alert your team when regressions are detected
+
+### Example Output
+
+```
+======================================================================
+REGRESSION DETECTION REPORT
+======================================================================
+
+Total tasks compared: 25
+Regressions detected: 2
+Improvements detected: 5
+Regression rate: 8.0%
+
+REGRESSIONS (previously passed, now failed):
+----------------------------------------------------------------------
+  - django__django-11099
+    Error: Timeout
+  - sympy__sympy-18087
+    Error: Test suite failed
+
+IMPROVEMENTS (previously failed, now passed):
+----------------------------------------------------------------------
+  - astropy__astropy-12907
+  - pytest-dev__pytest-7373
+  - scikit-learn__scikit-learn-25570
+  - matplotlib__matplotlib-23913
+  - requests__requests-3362
+
+======================================================================
+```
+
+For CI/CD integration, use `--regression-threshold` to fail the build when regressions exceed an acceptable rate:
+
+```yaml
+# .github/workflows/test-mcp.yml
+- name: Run mcpbr with regression detection
+  run: |
+    mcpbr run -c config.yaml \
+      --baseline-results baseline.json \
+      --regression-threshold 0.1 \
+      -o current.json
+```
+
+This will exit with code 1 if the regression rate exceeds 10%, failing the CI job.
 
 ## Installation
 
@@ -114,6 +214,25 @@ Run `mcpbr models` to see the full list.
 
 </details>
 
+### via npm
+
+[![npm package](https://img.shields.io/npm/v/mcpbr-cli.svg)](https://www.npmjs.com/package/mcpbr-cli)
+
+```bash
+# Run with npx (no installation)
+npx mcpbr-cli run -c config.yaml
+
+# Or install globally
+npm install -g mcpbr-cli
+mcpbr run -c config.yaml
+```
+
+> **Package**: [`mcpbr-cli`](https://www.npmjs.com/package/mcpbr-cli) on npm
+>
+> **Note**: The npm package requires Python 3.11+ and the mcpbr Python package (`pip install mcpbr`)
+
+### via pip
+
 ```bash
 # Install from PyPI
 pip install mcpbr
@@ -131,15 +250,43 @@ uv pip install -e .
 
 ## Quick Start
 
+### Option 1: Use Example Configurations (Recommended)
+
+Get started in seconds with our example configurations:
+
+```bash
+# Set your API key
+export ANTHROPIC_API_KEY="your-api-key"
+
+# Run your first evaluation using an example config
+mcpbr run -c examples/quick-start/getting-started.yaml -v
+```
+
+This runs 5 SWE-bench tasks with the filesystem server. Expected runtime: 15-30 minutes, cost: $2-5.
+
+**Explore 25+ example configurations** in the [`examples/`](examples/) directory:
+- **Quick Start**: Getting started, testing servers, comparing models
+- **Benchmarks**: SWE-bench Lite/Full, CyberGym basic/advanced
+- **MCP Servers**: Filesystem, GitHub, Brave Search, databases, custom servers
+- **Scenarios**: Cost-optimized, performance-optimized, CI/CD, regression detection
+
+See the **[Examples README](examples/README.md)** for the complete guide.
+
+### Option 2: Generate Custom Configuration
+
 1. **Set your API key:**
 
 ```bash
 export ANTHROPIC_API_KEY="your-api-key"
 ```
 
-2. **Generate a configuration file:**
+2. **Run mcpbr (config auto-created if missing):**
 
 ```bash
+# Config is auto-created on first run
+mcpbr run -n 1
+
+# Or explicitly generate a config file first
 mcpbr init
 ```
 
@@ -162,6 +309,9 @@ dataset: "SWE-bench/SWE-bench_Lite"
 sample_size: 10
 timeout_seconds: 300
 max_concurrent: 4
+
+# Optional: disable default logging (logs are saved to output_dir/logs/ by default)
+# disable_logs: true
 ```
 
 4. **Run the evaluation:**
@@ -169,6 +319,140 @@ max_concurrent: 4
 ```bash
 mcpbr run --config config.yaml
 ```
+
+## Claude Code Integration
+
+[![Claude Code Ready](https://img.shields.io/badge/Claude_Code-Ready-5865F2?style=flat&logo=anthropic)](https://claude.ai/download)
+
+mcpbr includes a built-in Claude Code plugin that makes Claude an expert at running benchmarks correctly. The plugin provides specialized skills and knowledge about mcpbr configuration, execution, and troubleshooting.
+
+### Installation Options
+
+You have three ways to enable the mcpbr plugin in Claude Code:
+
+#### Option 1: Clone Repository (Automatic Detection)
+
+When you clone this repository, Claude Code automatically detects and loads the plugin:
+
+```bash
+git clone https://github.com/greynewell/mcpbr.git
+cd mcpbr
+
+# Plugin is now active - try asking Claude:
+# "Run the SWE-bench Lite eval with 5 tasks"
+```
+
+**Best for**: Contributors, developers testing changes, or users who want the latest unreleased features.
+
+#### Option 2: npm Global Install (Planned for v0.4.0)
+
+Install the plugin globally via npm for use across any project:
+
+```bash
+# Planned for v0.4.0 (not yet released)
+npm install -g @mcpbr/claude-code-plugin
+```
+
+> **Note**: The npm package is not yet published. This installation method will be available in a future release. Track progress in [issue #265](https://github.com/greynewell/mcpbr/issues/265).
+
+**Best for**: Users who want plugin features available in any directory.
+
+#### Option 3: Claude Code Plugin Manager (Planned for v0.4.0)
+
+Install via Claude Code's built-in plugin manager:
+
+1. Open Claude Code settings
+2. Navigate to Plugins > Browse
+3. Search for "mcpbr"
+4. Click Install
+
+> **Note**: Plugin manager installation is not yet available. This installation method will be available after plugin marketplace submission. Track progress in [issue #267](https://github.com/greynewell/mcpbr/issues/267).
+
+**Best for**: Users who prefer a GUI and want automatic updates.
+
+### Installation Comparison
+
+| Method | Availability | Auto-updates | Works Anywhere | Latest Features |
+|--------|-------------|--------------|----------------|-----------------|
+| Clone Repository | Available now | Manual (git pull) | No (repo only) | Yes (unreleased) |
+| npm Global Install | Planned (not yet released) | Via npm | Yes | Yes (published) |
+| Plugin Manager | Planned (not yet released) | Automatic | Yes | Yes (published) |
+
+### What You Get
+
+The plugin includes three specialized skills that enhance Claude's ability to work with mcpbr:
+
+#### 1. run-benchmark
+Expert at running evaluations with proper validation and error handling.
+
+**Capabilities**:
+- Validates prerequisites (Docker running, API keys set, config files exist)
+- Constructs correct `mcpbr run` commands with appropriate flags
+- Handles errors gracefully with actionable troubleshooting steps
+- Monitors progress and provides meaningful status updates
+
+**Example interactions**:
+- "Run the SWE-bench Lite benchmark with 10 tasks"
+- "Evaluate my MCP server using CyberGym level 2"
+- "Test my config with a single task"
+
+#### 2. generate-config
+Generates valid mcpbr configuration files with benchmark-specific templates.
+
+**Capabilities**:
+- Ensures required `{workdir}` placeholder is included in MCP server args
+- Validates MCP server command syntax
+- Provides templates for different benchmarks (SWE-bench, CyberGym, MCPToolBench++)
+- Suggests appropriate timeouts and concurrency settings
+
+**Example interactions**:
+- "Generate a config for the filesystem MCP server"
+- "Create a config for testing my custom MCP server"
+- "Set up a CyberGym evaluation config"
+
+#### 3. swe-bench-lite
+Quick-start command for running SWE-bench Lite evaluations.
+
+**Capabilities**:
+- Pre-configured for 5-task evaluation (fast testing)
+- Includes sensible defaults for output files and logging
+- Perfect for demonstrations and initial testing
+- Automatically sets up verbose output for debugging
+
+**Example interactions**:
+- "Run a quick SWE-bench Lite test"
+- "Show me how mcpbr works"
+- "Test the filesystem server"
+
+### Benefits
+
+When using Claude Code with the mcpbr plugin active, Claude will automatically:
+
+- Verify Docker is running before starting evaluations
+- Check for required API keys (`ANTHROPIC_API_KEY`)
+- Generate valid configurations with proper `{workdir}` placeholders
+- Use correct CLI flags and avoid deprecated options
+- Provide contextual troubleshooting when issues occur
+- Follow mcpbr best practices for optimal results
+
+### Troubleshooting
+
+**Plugin not detected in cloned repository**:
+- Ensure you're in the repository root directory
+- Verify the `claude-code.json` file exists in the repo
+- Try restarting Claude Code
+
+**Skills not appearing**:
+- Check Claude Code version (requires v2.0+)
+- Verify plugin is listed in Settings > Plugins
+- Try running `/reload-plugins` in Claude Code
+
+**Commands failing**:
+- Ensure mcpbr is installed: `pip install mcpbr`
+- Verify Docker is running: `docker info`
+- Check API key is set: `echo $ANTHROPIC_API_KEY`
+
+For more help, see the [troubleshooting guide](https://greynewell.github.io/mcpbr/troubleshooting/) or [open an issue](https://github.com/greynewell/mcpbr/issues).
 
 ## Configuration
 
@@ -214,6 +498,45 @@ mcp_server:
     SUPERMODEL_API_KEY: "${SUPERMODEL_API_KEY}"
 ```
 
+### MCP Timeout Configuration
+
+mcpbr supports configurable timeouts for MCP server operations to handle different server types and workloads.
+
+#### Configuration Fields
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `startup_timeout_ms` | Timeout in milliseconds for MCP server startup | 60000 (60s) |
+| `tool_timeout_ms` | Timeout in milliseconds for MCP tool execution | 900000 (15 min) |
+
+These fields map to the `MCP_TIMEOUT` and `MCP_TOOL_TIMEOUT` environment variables used by Claude Code. See the [Claude Code settings documentation](https://code.claude.com/docs/en/settings.md) for more details.
+
+#### Example Configuration
+
+```yaml
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+  startup_timeout_ms: 60000      # 60 seconds for server to start
+  tool_timeout_ms: 900000        # 15 minutes for long-running tools
+```
+
+#### Common Timeout Values
+
+Different server types require different timeout settings based on their operational characteristics:
+
+| Server Type | startup_timeout_ms | tool_timeout_ms | Notes |
+|-------------|-------------------|-----------------|-------|
+| Fast (filesystem, git) | 10000 (10s) | 30000 (30s) | Local operations with minimal overhead |
+| Medium (web search, APIs) | 30000 (30s) | 120000 (2m) | Network I/O with moderate latency |
+| Slow (code analysis, databases) | 60000 (60s) | 900000 (15m) | Complex processing or large datasets |
+
+**When to adjust timeouts:**
+
+- **Increase `startup_timeout_ms`** if your server takes longer to initialize (e.g., loading large models, establishing database connections)
+- **Increase `tool_timeout_ms`** if your tools perform long-running operations (e.g., codebase analysis, file processing, AI inference)
+- **Decrease timeouts** for fast servers to fail quickly on connection issues
+
 ### Custom Agent Prompt
 
 You can customize the prompt sent to the agent using the `agent_prompt` field:
@@ -236,7 +559,7 @@ Use `{problem_statement}` as a placeholder for the SWE-bench issue text. You can
 |-----------|---------|-------------|
 | `provider` | `anthropic` | LLM provider |
 | `agent_harness` | `claude-code` | Agent backend |
-| `benchmark` | `swe-bench` | Benchmark to run (`swe-bench` or `cybergym`) |
+| `benchmark` | `swe-bench` | Benchmark to run (`swe-bench`, `cybergym`, or `mcptoolbench`) |
 | `agent_prompt` | `null` | Custom prompt template (use `{problem_statement}` placeholder) |
 | `model` | `sonnet` | Model alias or full ID |
 | `dataset` | `null` | HuggingFace dataset (optional, benchmark provides default) |
@@ -267,7 +590,7 @@ mcpbr init --help
 | `mcpbr models` | List supported models for evaluation |
 | `mcpbr providers` | List available model providers |
 | `mcpbr harnesses` | List available agent harnesses |
-| `mcpbr benchmarks` | List available benchmarks (SWE-bench, CyberGym) |
+| `mcpbr benchmarks` | List available benchmarks (SWE-bench, CyberGym, MCPToolBench++) |
 | `mcpbr cleanup` | Remove orphaned mcpbr Docker containers |
 
 ### `mcpbr run`
@@ -279,9 +602,9 @@ Run SWE-bench evaluation with the configured MCP server.
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--config PATH` | `-c` | Path to YAML configuration file (required) |
+| `--config PATH` | `-c` | Path to YAML configuration file (default: `mcpbr.yaml`, auto-created if missing) |
 | `--model TEXT` | `-m` | Override model from config |
-| `--benchmark TEXT` | `-b` | Override benchmark from config (`swe-bench` or `cybergym`) |
+| `--benchmark TEXT` | `-b` | Override benchmark from config (`swe-bench`, `cybergym`, or `mcptoolbench`) |
 | `--level INTEGER` | | Override CyberGym difficulty level (0-3) |
 | `--sample INTEGER` | `-n` | Override sample size from config |
 | `--mcp-only` | `-M` | Run only MCP evaluation (skip baseline) |
@@ -289,11 +612,24 @@ Run SWE-bench evaluation with the configured MCP server.
 | `--no-prebuilt` | | Disable pre-built SWE-bench images (build from scratch) |
 | `--output PATH` | `-o` | Path to save JSON results |
 | `--report PATH` | `-r` | Path to save Markdown report |
+| `--output-junit PATH` | | Path to save JUnit XML report (for CI/CD integration) |
 | `--verbose` | `-v` | Verbose output (`-v` summary, `-vv` detailed) |
 | `--log-file PATH` | `-l` | Path to write raw JSON log output (single file) |
-| `--log-dir PATH` | | Directory to write per-instance JSON log files |
+| `--log-dir PATH` | | Directory to write per-instance JSON log files (default: `output_dir/logs/`) |
+| `--disable-logs` | | Disable detailed execution logs (overrides default and config) |
 | `--task TEXT` | `-t` | Run specific task(s) by instance_id (repeatable) |
 | `--prompt TEXT` | | Override agent prompt (use `{problem_statement}` placeholder) |
+| `--baseline-results PATH` | | Path to baseline results JSON for regression detection |
+| `--regression-threshold FLOAT` | | Maximum acceptable regression rate (0-1). Exit with code 1 if exceeded. |
+| `--slack-webhook URL` | | Slack webhook URL for regression notifications |
+| `--discord-webhook URL` | | Discord webhook URL for regression notifications |
+| `--email-to EMAIL` | | Email address for regression notifications |
+| `--email-from EMAIL` | | Sender email address for notifications |
+| `--smtp-host HOST` | | SMTP server hostname for email notifications |
+| `--smtp-port PORT` | | SMTP server port (default: 587) |
+| `--smtp-user USER` | | SMTP username for authentication |
+| `--smtp-password PASS` | | SMTP password for authentication |
+| `--profile` | | Enable comprehensive performance profiling (tool latency, memory, overhead) |
 | `--help` | `-h` | Show help message |
 
 </details>
@@ -320,6 +656,9 @@ mcpbr run -c config.yaml -n 50
 # Save results and report
 mcpbr run -c config.yaml -o results.json -r report.md
 
+# Save JUnit XML for CI/CD
+mcpbr run -c config.yaml --output-junit junit.xml
+
 # Run specific tasks
 mcpbr run -c config.yaml -t astropy__astropy-12907 -t django__django-11099
 
@@ -334,6 +673,24 @@ mcpbr run -c config.yaml --benchmark cybergym --level 2
 
 # Run CyberGym with specific tasks
 mcpbr run -c config.yaml --benchmark cybergym --level 3 -n 5
+
+# Regression detection - compare against baseline
+mcpbr run -c config.yaml --baseline-results baseline.json
+
+# Regression detection with threshold (exit 1 if exceeded)
+mcpbr run -c config.yaml --baseline-results baseline.json --regression-threshold 0.1
+
+# Regression detection with Slack notifications
+mcpbr run -c config.yaml --baseline-results baseline.json --slack-webhook https://hooks.slack.com/...
+
+# Regression detection with Discord notifications
+mcpbr run -c config.yaml --baseline-results baseline.json --discord-webhook https://discord.com/api/webhooks/...
+
+# Regression detection with email notifications
+mcpbr run -c config.yaml --baseline-results baseline.json \
+  --email-to team@example.com --email-from mcpbr@example.com \
+  --smtp-host smtp.gmail.com --smtp-port 587 \
+  --smtp-user user@gmail.com --smtp-password "app-password"
 ```
 
 </details>
@@ -386,6 +743,58 @@ mcpbr cleanup -f
 ```
 
 </details>
+
+## Performance Profiling
+
+mcpbr includes comprehensive performance profiling to understand MCP server overhead and identify optimization opportunities.
+
+### Enable Profiling
+
+```bash
+# Via CLI flag
+mcpbr run -c config.yaml --profile
+
+# Or in config.yaml
+enable_profiling: true
+```
+
+### What Gets Measured
+
+- **Tool call latencies** with percentiles (p50, p95, p99)
+- **Memory usage** (peak and average RSS/VMS)
+- **Infrastructure overhead** (Docker and MCP server startup times)
+- **Tool discovery speed** (time to first tool use)
+- **Tool switching overhead** (time between tool calls)
+- **Automated insights** from profiling data
+
+### Example Profiling Output
+
+```json
+{
+  "profiling": {
+    "task_duration_seconds": 140.5,
+    "tool_call_latencies": {
+      "Read": {"count": 15, "avg_seconds": 0.8, "p95_seconds": 1.5},
+      "Bash": {"avg_seconds": 2.3, "p95_seconds": 5.1}
+    },
+    "memory_profile": {"peak_rss_mb": 512.3, "avg_rss_mb": 387.5},
+    "docker_startup_seconds": 2.1,
+    "mcp_server_startup_seconds": 1.8
+  }
+}
+```
+
+### Automated Insights
+
+The profiler automatically identifies performance issues:
+
+```text
+- Bash is the slowest tool (avg: 2.3s, p95: 5.1s)
+- Docker startup adds 2.1s overhead per task
+- Fast tool discovery: first tool use in 8.3s
+```
+
+See [docs/profiling.md](docs/profiling.md) for complete profiling documentation.
 
 ## Example Run
 
@@ -514,6 +923,38 @@ Results saved to results.json
 }
 ```
 
+### Output Directory Structure
+
+By default, mcpbr consolidates all outputs into a single timestamped directory:
+
+```text
+.mcpbr_run_20260126_133000/
+├── config.yaml                # Copy of configuration used
+├── evaluation_state.json      # Task results and state
+├── logs/                      # Detailed MCP server logs
+│   ├── task_1_mcp.log
+│   ├── task_2_mcp.log
+│   └── ...
+└── README.txt                 # Auto-generated explanation
+```
+
+This makes it easy to:
+- **Archive results**: `tar -czf results.tar.gz .mcpbr_run_*`
+- **Clean up**: `rm -rf .mcpbr_run_*`
+- **Share**: Just zip one directory
+
+You can customize the output directory:
+
+```bash
+# Custom output directory
+mcpbr run -c config.yaml --output-dir ./my-results
+
+# Or in config.yaml
+output_dir: "./my-results"
+```
+
+**Note:** The `--output-dir` CLI flag takes precedence over the `output_dir` config setting. This ensures that the README.txt file in the output directory reflects the final effective configuration values after all CLI overrides are applied.
+
 ### Markdown Report (`--report`)
 
 Generates a human-readable report with:
@@ -522,6 +963,17 @@ Generates a human-readable report with:
 - Analysis of which tasks each agent solved
 
 ### Per-Instance Logs (`--log-dir`)
+
+**Logging is enabled by default** to prevent data loss. Detailed execution traces are automatically saved to `output_dir/logs/` unless disabled.
+
+To disable logging:
+```bash
+# Via CLI flag
+mcpbr run -c config.yaml --disable-logs
+
+# Or in config file
+disable_logs: true
+```
 
 Creates a directory with detailed JSON log files for each task run. Filenames include timestamps to prevent overwrites:
 
@@ -571,15 +1023,105 @@ Each log file contains the full stream of events from the agent CLI:
 
 This is useful for debugging failed runs or analyzing agent behavior in detail.
 
+### JUnit XML Output (`--output-junit`)
+
+The harness can generate JUnit XML reports for integration with CI/CD systems like GitHub Actions, GitLab CI, and Jenkins. Each task is represented as a test case, with resolved/unresolved tasks mapped to pass/fail states.
+
+```bash
+mcpbr run -c config.yaml --output-junit junit.xml
+```
+
+The JUnit XML report includes:
+
+- **Test Suites**: Separate suites for MCP and baseline evaluations
+- **Test Cases**: Each task is a test case with timing information
+- **Failures**: Unresolved tasks with detailed error messages
+- **Properties**: Metadata about model, provider, benchmark configuration
+- **System Output**: Token usage, tool calls, and test results per task
+
+#### CI/CD Integration Examples
+
+**GitHub Actions:**
+
+```yaml
+name: MCP Benchmark
+
+on: [push, pull_request]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install mcpbr
+        run: pip install mcpbr
+
+      - name: Run benchmark
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mcpbr run -c config.yaml --output-junit junit.xml
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: junit.xml
+```
+
+**GitLab CI:**
+
+```yaml
+benchmark:
+  image: python:3.11
+  services:
+    - docker:dind
+  script:
+    - pip install mcpbr
+    - mcpbr run -c config.yaml --output-junit junit.xml
+  artifacts:
+    reports:
+      junit: junit.xml
+```
+
+**Jenkins:**
+
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Benchmark') {
+            steps {
+                sh 'pip install mcpbr'
+                sh 'mcpbr run -c config.yaml --output-junit junit.xml'
+            }
+        }
+    }
+    post {
+        always {
+            junit 'junit.xml'
+        }
+    }
+}
+```
+
+The JUnit XML format enables native test result visualization in your CI/CD dashboard, making it easy to track benchmark performance over time and identify regressions.
+
 ## How It Works
 
 > **[Architecture deep dive](https://greynewell.github.io/mcpbr/architecture/)** - learn how mcpbr works internally.
 
-1. **Load Tasks**: Fetches tasks from the selected benchmark (SWE-bench or CyberGym) via HuggingFace
+1. **Load Tasks**: Fetches tasks from the selected benchmark (SWE-bench, CyberGym, or MCPToolBench++) via HuggingFace
 2. **Create Environment**: For each task, creates an isolated Docker environment with the repository and dependencies
 3. **Run MCP Agent**: Invokes Claude Code CLI **inside the Docker container**, letting it explore and generate a solution (patch or PoC)
 4. **Run Baseline**: Same as MCP agent but without the MCP server
-5. **Evaluate**: Runs benchmark-specific evaluation (test suites for SWE-bench, crash detection for CyberGym)
+5. **Evaluate**: Runs benchmark-specific evaluation (test suites for SWE-bench, crash detection for CyberGym, tool use accuracy for MCPToolBench++)
 6. **Report**: Aggregates results and calculates improvement
 
 ### Pre-built Docker Images
@@ -608,10 +1150,11 @@ mcpbr/
 │   ├── providers.py     # LLM provider abstractions (extensible)
 │   ├── harnesses.py     # Agent harness implementations (extensible)
 │   ├── benchmarks/      # Benchmark abstraction layer
-│   │   ├── __init__.py  # Registry and factory
-│   │   ├── base.py      # Benchmark protocol
-│   │   ├── swebench.py  # SWE-bench implementation
-│   │   └── cybergym.py  # CyberGym implementation
+│   │   ├── __init__.py      # Registry and factory
+│   │   ├── base.py          # Benchmark protocol
+│   │   ├── swebench.py      # SWE-bench implementation
+│   │   ├── cybergym.py      # CyberGym implementation
+│   │   └── mcptoolbench.py  # MCPToolBench++ implementation
 │   ├── harness.py       # Main orchestrator
 │   ├── agent.py         # Baseline agent implementation
 │   ├── docker_env.py    # Docker environment management + in-container execution
@@ -666,7 +1209,9 @@ The architecture uses Protocol-based abstractions for providers, harnesses, and 
 
 ## Troubleshooting
 
-> **[Full troubleshooting guide](https://greynewell.github.io/mcpbr/troubleshooting/)** with solutions to common issues.
+> **[FAQ](https://greynewell.github.io/mcpbr/FAQ/)** - Quick answers to common questions
+>
+> **[Full troubleshooting guide](https://greynewell.github.io/mcpbr/troubleshooting/)** - Detailed solutions to common issues
 
 ### Docker Issues
 
@@ -737,6 +1282,30 @@ pytest
 ruff check src/
 ```
 
+### Creating Releases
+
+We use an automated workflow for releases. See the **[Release Guide](docs/RELEASE.md)** for full details.
+
+**Quick start for maintainers:**
+```bash
+# Patch release (bug fixes) - most common
+gh workflow run release.yml -f version_bump=patch
+
+# Minor release (new features)
+gh workflow run release.yml -f version_bump=minor
+
+# Major release (breaking changes)
+gh workflow run release.yml -f version_bump=major
+```
+
+**For AI agents:** See the **[AI Agent Guide](docs/AI_AGENT_GUIDE.md)** for a quick reference.
+
+The workflow automatically:
+- Bumps version in `pyproject.toml`
+- Syncs version to all package files
+- Creates git tag and GitHub release
+- Triggers PyPI and npm publication
+
 ## Roadmap
 
 We're building the defacto standard for MCP server benchmarking! Our [v1.0 Roadmap](https://github.com/greynewell/mcpbr/projects/2) includes 200+ features across 11 strategic categories:
@@ -750,7 +1319,8 @@ We're building the defacto standard for MCP server benchmarking! Our [v1.0 Roadm
 ### Roadmap Highlights
 
 **Phase 1: Foundation** (v0.3.0)
-- CSV, YAML, XML, JUnit output formats
+- ✅ JUnit XML output format for CI/CD integration
+- CSV, YAML, XML output formats
 - Config validation and templates
 - Results persistence and recovery
 - Cost analysis in reports
@@ -783,17 +1353,36 @@ We're building the defacto standard for MCP server benchmarking! Our [v1.0 Roadm
 
 We welcome contributions! Check out our **30+ good first issues** perfect for newcomers:
 
-- **Output Formats**: CSV/YAML/XML export, JUnit XML
+- **Output Formats**: CSV/YAML/XML export
 - **Configuration**: Validation, templates, shell completion
 - **Platform**: Homebrew formula, Conda package
 - **Documentation**: Best practices, examples, guides
 
 See the [contributing guide](https://greynewell.github.io/mcpbr/contributing/) to get started!
 
+## Best Practices
+
+New to mcpbr or want to optimize your workflow? Check out the **[Best Practices Guide](https://greynewell.github.io/mcpbr/best-practices/)** for:
+
+- Benchmark selection guidelines
+- MCP server configuration tips
+- Performance optimization strategies
+- Cost management techniques
+- CI/CD integration patterns
+- Debugging workflows
+- Common pitfalls to avoid
+
 ## Contributing
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) or the **[contributing guide](https://greynewell.github.io/mcpbr/contributing/)** for guidelines on how to contribute.
 
+All contributors are expected to follow our [Community Guidelines](CODE_OF_CONDUCT.md).
+
 ## License
 
 MIT - see [LICENSE](LICENSE) for details.
+
+
+---
+
+Built by [Grey Newell](https://greynewell.com)

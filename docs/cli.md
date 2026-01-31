@@ -1,13 +1,13 @@
 ---
 faq:
   - q: "What commands are available in mcpbr?"
-    a: "mcpbr provides six commands: run (execute evaluations), init (generate config), models (list supported models), providers (list LLM providers), harnesses (list agent backends), and cleanup (remove orphaned Docker containers)."
+    a: "mcpbr provides six commands: run (execute evaluations), init (generate config), models (list supported models), providers (list LLM providers), harnesses (list agent backends), benchmarks (list available benchmarks), and cleanup (remove orphaned Docker resources including containers, volumes, and networks)."
   - q: "How do I run only the MCP agent without the baseline?"
     a: "Use the --mcp-only or -M flag: 'mcpbr run -c config.yaml -M'. This skips the baseline evaluation and only runs the MCP-enabled agent."
   - q: "How do I run a specific SWE-bench task?"
     a: "Use the --task or -t flag with the instance_id: 'mcpbr run -c config.yaml -t astropy__astropy-12907'. You can repeat this flag to run multiple specific tasks."
   - q: "How do I save mcpbr results to a file?"
-    a: "Use --output (-o) for JSON results and --report (-r) for a Markdown report: 'mcpbr run -c config.yaml -o results.json -r report.md'."
+    a: "Use --output (-o) for JSON results, --output-yaml (-y) for YAML results, and --report (-r) for a Markdown report: 'mcpbr run -c config.yaml -o results.json -y results.yaml -r report.md'."
 ---
 
 # CLI Reference
@@ -28,11 +28,12 @@ mcpbr init --help
 |---------|-------------|
 | `mcpbr run` | Run benchmark evaluation with configured MCP server |
 | `mcpbr init` | Generate an example configuration file |
+| `mcpbr config` | Manage configuration templates |
 | `mcpbr models` | List supported models for evaluation |
 | `mcpbr providers` | List available model providers |
 | `mcpbr harnesses` | List available agent harnesses |
 | `mcpbr benchmarks` | List available benchmarks (SWE-bench, CyberGym) |
-| `mcpbr cleanup` | Remove orphaned mcpbr Docker containers |
+| `mcpbr cleanup` | Remove orphaned mcpbr Docker resources (containers, volumes, networks) |
 
 ---
 
@@ -62,11 +63,15 @@ mcpbr run -c CONFIG [OPTIONS]
 | `--no-prebuilt` | | Flag | Disable pre-built SWE-bench images |
 | `--output PATH` | `-o` | Path | Path to save JSON results |
 | `--report PATH` | `-r` | Path | Path to save Markdown report |
+| `--output-yaml PATH` | `-y` | Path | Path to save YAML results |
 | `--verbose` | `-v` | Count | Verbose output (`-v` summary, `-vv` detailed) |
 | `--log-file PATH` | `-l` | Path | Path to write raw JSON log output (single file) |
 | `--log-dir PATH` | | Path | Directory to write per-instance JSON log files |
 | `--task TEXT` | `-t` | String | Run specific task(s) by instance_id (repeatable) |
 | `--prompt TEXT` | | String | Override agent prompt (use `{problem_statement}` placeholder) |
+| `--filter-difficulty TEXT` | | String | Filter benchmarks by difficulty (repeatable) |
+| `--filter-category TEXT` | | String | Filter benchmarks by category (repeatable) |
+| `--filter-tags TEXT` | | String | Filter benchmarks by tags (repeatable) |
 | `--help` | `-h` | Flag | Show help message |
 
 ### Examples
@@ -116,17 +121,39 @@ mcpbr run -c config.yaml --benchmark cybergym --level 3
 mcpbr run -c config.yaml --prompt "Fix this bug: {problem_statement}"
 ```
 
+#### Filter Benchmarks
+
+```bash
+# Filter by difficulty (CyberGym levels or MCPToolBench complexity)
+mcpbr run -c config.yaml --filter-difficulty easy --filter-difficulty medium
+
+# Filter by category (MCPToolBench categories or SWE-bench repos)
+mcpbr run -c config.yaml --filter-category browser --filter-category finance
+
+# Filter by multiple criteria
+mcpbr run -c config.yaml \
+  --filter-difficulty hard \
+  --filter-category security
+
+# CyberGym with difficulty filtering
+mcpbr run -c config.yaml --benchmark cybergym \
+  --filter-difficulty 2 --filter-difficulty 3
+```
+
 #### Save Results
 
 ```bash
 # Save JSON results
 mcpbr run -c config.yaml -o results.json
 
+# Save YAML results
+mcpbr run -c config.yaml -y results.yaml
+
 # Save Markdown report
 mcpbr run -c config.yaml -r report.md
 
-# Both
-mcpbr run -c config.yaml -o results.json -r report.md
+# Save all formats
+mcpbr run -c config.yaml -o results.json -y results.yaml -r report.md
 
 # Per-instance logs
 mcpbr run -c config.yaml -v --log-dir logs/
@@ -149,6 +176,8 @@ mcpbr init [OPTIONS]
 | Option | Short | Type | Default | Description |
 |--------|-------|------|---------|-------------|
 | `--output PATH` | `-o` | Path | `mcpbr.yaml` | Path to write example config |
+| `--template TEXT` | `-t` | String | | Template ID to use (see `mcpbr config list`) |
+| `--interactive` | `-i` | Flag | | Interactive template selection wizard |
 | `--help` | `-h` | Flag | | Show help message |
 
 ### Examples
@@ -157,8 +186,94 @@ mcpbr init [OPTIONS]
 # Create default config
 mcpbr init
 
-# Custom filename
-mcpbr init -o my-config.yaml
+# Use a template
+mcpbr init -t filesystem
+
+# Interactive template selection
+mcpbr init -i
+
+# Custom filename with template
+mcpbr init -t brave-search -o brave.yaml
+```
+
+---
+
+## `mcpbr config`
+
+Manage configuration templates for popular MCP servers.
+
+### Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `mcpbr config list` | List available configuration templates |
+| `mcpbr config apply` | Apply a template to create a configuration file |
+
+---
+
+### `mcpbr config list`
+
+List all available MCP server configuration templates.
+
+#### Usage
+
+```bash
+mcpbr config list
+```
+
+#### Output
+
+```text
+                   Available MCP Server Templates
++-------------+------------------+---------------------+----------+-------------+
+| ID          | Name             | Package             | API Key  | Description |
++-------------+------------------+---------------------+----------+-------------+
+| filesystem  | Filesystem       | @modelcontext...    | No       | File system |
+|             | Server           |                     |          | access      |
+| brave-      | Brave Search     | @modelcontext...    | Yes      | Web search  |
+| search      |                  |                     |          | using Brave |
+| github      | GitHub           | @modelcontext...    | Yes      | GitHub API  |
+|             |                  |                     |          | integration |
++-------------+------------------+---------------------+----------+-------------+
+```
+
+---
+
+### `mcpbr config apply`
+
+Apply a template to create a configuration file.
+
+#### Usage
+
+```bash
+mcpbr config apply TEMPLATE_ID [OPTIONS]
+```
+
+#### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `TEMPLATE_ID` | ID of the template to apply (see `mcpbr config list`) |
+
+#### Options
+
+| Option | Short | Type | Default | Description |
+|--------|-------|------|---------|-------------|
+| `--output PATH` | `-o` | Path | `mcpbr.yaml` | Path to write configuration file |
+| `--force` | `-f` | Flag | | Overwrite existing configuration file |
+| `--help` | `-h` | Flag | | Show help message |
+
+#### Examples
+
+```bash
+# Apply filesystem template
+mcpbr config apply filesystem
+
+# Custom output path
+mcpbr config apply brave-search -o brave.yaml
+
+# Overwrite existing config
+mcpbr config apply github --force
 ```
 
 ---
@@ -269,7 +384,9 @@ See the [Benchmarks guide](benchmarks.md) for detailed information about each be
 
 ## `mcpbr cleanup`
 
-Remove orphaned mcpbr Docker containers that were not properly cleaned up.
+Remove orphaned mcpbr Docker resources (containers, volumes, networks) that were not properly cleaned up.
+
+This command helps prevent resource leaks when evaluations fail or are interrupted. By default, it only removes resources older than 24 hours to avoid removing resources from currently running evaluations.
 
 ### Usage
 
@@ -279,34 +396,139 @@ mcpbr cleanup [OPTIONS]
 
 ### Options
 
-| Option | Short | Type | Description |
-|--------|-------|------|-------------|
-| `--dry-run` | | Flag | Show containers that would be removed without removing them |
-| `--force` | `-f` | Flag | Skip confirmation prompt |
-| `--help` | `-h` | Flag | Show help message |
+| Option | Short | Type | Default | Description |
+|--------|-------|------|---------|-------------|
+| `--dry-run` | | Flag | False | Show resources that would be removed without removing them |
+| `--force` | `-f` | Flag | False | Force removal without confirmation and ignore retention policy |
+| `--retention-hours N` | | Integer | 24 | Only remove resources older than N hours |
+| `--containers-only` | | Flag | False | Only clean up containers (skip volumes and networks) |
+| `--volumes-only` | | Flag | False | Only clean up volumes (skip containers and networks) |
+| `--networks-only` | | Flag | False | Only clean up networks (skip containers and volumes) |
+| `--help` | `-h` | Flag | | Show help message |
+
+### Behavior
+
+- **Default**: Removes resources older than 24 hours with confirmation prompt
+- **--force**: Removes all resources immediately without confirmation
+- **--retention-hours**: Customize the age threshold for automatic cleanup
+- **--dry-run**: Shows what would be removed without making changes
+- **Resource types**: Cleans containers, volumes, and networks by default
 
 ### Examples
 
 ```bash
-# Preview containers to remove
+# Preview all resources that would be removed (24h+ old)
 mcpbr cleanup --dry-run
 
-# Remove with confirmation prompt
+# Remove resources with confirmation prompt
 mcpbr cleanup
 
-# Remove without confirmation
+# Force remove all resources immediately
 mcpbr cleanup -f
+
+# Only remove resources older than 48 hours
+mcpbr cleanup --retention-hours 48
+
+# Remove only containers
+mcpbr cleanup --containers-only
+
+# Remove only volumes (useful after many failed runs)
+mcpbr cleanup --volumes-only
+
+# Preview with custom retention period
+mcpbr cleanup --dry-run --retention-hours 12
+```
+
+### Resource Tracking
+
+mcpbr tracks Docker resources using labels:
+
+- `mcpbr=true` - Identifies resources created by mcpbr
+- `mcpbr.instance` - Links to specific benchmark task
+- `mcpbr.session` - Groups resources from same evaluation run
+- `mcpbr.timestamp` - Creation time for retention policy
+
+### When to Use Cleanup
+
+Run cleanup when you:
+
+- Have crashed or interrupted evaluations
+- See "container already exists" errors
+- Want to free up disk space
+- Are switching between different evaluation configurations
+- Need to ensure a clean slate before running new evaluations
+
+### Safety Features
+
+- **Retention policy**: Prevents accidental removal of running evaluations
+- **Confirmation prompt**: Asks before removing resources (unless --force)
+- **Dry run**: Preview mode to verify what will be removed
+- **Selective cleanup**: Target specific resource types
+- **Error reporting**: Shows which resources failed to clean up
+
+### Output Example
+
+```text
+Found orphaned mcpbr resources:
+
+  Containers (3):
+    - mcpbr-abc123-astropy__astropy-12907
+    - mcpbr-def456-django__django-11099
+    - mcpbr-ghi789-sympy__sympy-18199
+
+  Volumes (2):
+    - mcpbr-volume-abc123
+    - mcpbr-volume-def456
+
+  Networks (1):
+    - mcpbr-network-abc123
+
+Total: 6 resource(s)
+
+Remove these resources? [Y/n]:
 ```
 
 ---
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Error (configuration, API, etc.) |
-| 130 | Interrupted by user (Ctrl+C) |
+mcpbr uses specific exit codes to indicate different outcomes, making it easier to integrate with scripts and CI/CD pipelines.
+
+| Code | Meaning | When to Use |
+|------|---------|-------------|
+| 0 | Success | At least one task was resolved successfully |
+| 1 | Fatal error | Config invalid, Docker unavailable, API error, crash, or regression threshold exceeded |
+| 2 | No resolutions | Evaluation ran but no tasks were resolved (0% success) |
+| 3 | Nothing evaluated | All tasks were cached/skipped, none actually ran |
+| 130 | Interrupted by user | Evaluation interrupted by Ctrl+C |
+
+### Exit Code Examples
+
+```bash
+# Check exit code after evaluation
+mcpbr run -c config.yaml
+echo $?  # 0 = success, 1 = error, 2 = no resolutions, 3 = all cached
+
+# Use in scripts
+if mcpbr run -c config.yaml; then
+    echo "Evaluation successful"
+else
+    exit_code=$?
+    case $exit_code in
+        1) echo "Fatal error occurred" ;;
+        2) echo "No tasks resolved" ;;
+        3) echo "All tasks cached, use --reset-state to re-run" ;;
+        130) echo "Interrupted by user" ;;
+    esac
+fi
+
+# CI/CD integration
+mcpbr run -c config.yaml
+if [ $? -eq 3 ]; then
+    echo "Results cached, re-running with --reset-state"
+    mcpbr run -c config.yaml --reset-state
+fi
+```
 
 ---
 

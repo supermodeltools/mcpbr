@@ -75,12 +75,15 @@ nav:
   - Getting Started:
       - Installation: installation.md
       - Quick Start: index.md
+      - FAQ: FAQ.md
   - User Guide:
+      - Best Practices: best-practices.md
       - Configuration: configuration.md
       - CLI Reference: cli.md
       - Benchmarks: benchmarks.md
       - MCP Integration: mcp-integration.md
       - Evaluation Results: evaluation-results.md
+      - Claude Code Plugin: claude-code-plugin.md
   - Reference:
       - Architecture: architecture.md
       - API Reference: api/index.md
@@ -94,6 +97,9 @@ extra:
       link: https://github.com/greynewell/mcpbr
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/mcpbr/
+    - icon: fontawesome/brands/npm
+      link: https://www.npmjs.com/package/mcpbr-cli
+      name: npm package
     - icon: fontawesome/solid/globe
       link: https://greynewell.com
       name: Grey Newell

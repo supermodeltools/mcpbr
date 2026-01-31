@@ -7,6 +7,40 @@ on:
     branches: [main]
 
 jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check version sync
+        run: |
+          python3 scripts/sync_version.py
+          # Check if sync made any changes
+          if ! git diff --quiet .claude-plugin/plugin.json .claude-plugin/marketplace.json .claude-plugin/package.json package.json; then
+            echo "Error: Version files are out of sync!"
+            echo "Run 'python3 scripts/sync_version.py' to sync versions"
+            git diff .claude-plugin/plugin.json .claude-plugin/marketplace.json .claude-plugin/package.json package.json
+            exit 1
+          fi
+
+  plugin-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate plugin and marketplace manifests
+        run: python3 scripts/validate_plugin_manifests.py
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -17,16 +51,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install pre-commit
         run: |
           python -m pip install --upgrade pip
-          pip install ruff
+          pip install pre-commit
 
-      - name: Run ruff check
-        run: ruff check src/ tests/
-
-      - name: Run ruff format check
-        run: ruff format --check src/ tests/
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure
 
   test:
     runs-on: ubuntu-latest
@@ -72,3 +103,65 @@ jobs:
         run: |
           pip install twine
           twine check dist/*
+
+  npm-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build and install mcpbr Python package
+        run: |
+          python -m build
+          pip install dist/*.whl
+
+      - name: Verify mcpbr Python package installation
+        run: |
+          python -m mcpbr --version
+          echo "mcpbr Python package installed successfully"
+
+      - name: Verify CLI package structure
+        run: |
+          test -f package.json || (echo "Error: Root package.json not found" && exit 1)
+          test -f bin/mcpbr.js || (echo "Error: CLI binary not found" && exit 1)
+          echo "CLI package structure verified"
+
+      - name: Install CLI package dependencies
+        run: npm install
+
+      - name: Test CLI package
+        run: |
+          npm test
+          echo "CLI package test passed"
+
+      - name: Verify plugin package structure
+        run: |
+          test -f .claude-plugin/package.json || (echo "Error: Plugin package.json not found" && exit 1)
+          test -f .claude-plugin/plugin.json || (echo "Error: plugin.json not found" && exit 1)
+          test -d .claude-plugin/skills || (echo "Error: skills directory not found" && exit 1)
+          echo "Plugin package structure verified"
+
+      - name: Check CLI package with npm pack
+        run: |
+          npm pack --dry-run
+          echo "CLI package check passed"
+
+      - name: Check plugin package with npm pack
+        run: |
+          cd .claude-plugin
+          npm pack --dry-run
+          echo "Plugin package check passed"
