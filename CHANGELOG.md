@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - State tracker now computes correct config hash when using mcp_server_a/b
   - Preflight checks now validate both servers in comparison mode
   - Fixes AttributeError when running side-by-side evaluations
+- **GSM8K Configuration**: Added gsm8k to VALID_BENCHMARKS list
+  - Benchmark validation now accepts gsm8k as a valid benchmark option
+  - Updated field description to include gsm8k and humaneval
+- **GSM8K Compatibility**: Added filter parameters to GSM8K load_tasks signature
+  - Added filter_difficulty, filter_category, filter_tags for compatibility
+  - Parameters unused for GSM8K but needed for benchmark interface consistency
+  - Fixes TypeError when running GSM8K evaluations
 
 ### Infrastructure
 
