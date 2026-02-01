@@ -124,10 +124,22 @@ def compute_config_hash(config: Any) -> str:
         "benchmark": config.benchmark,
         "timeout_seconds": config.timeout_seconds,
         "max_iterations": config.max_iterations,
-        # Include MCP server config
-        "mcp_server_command": config.mcp_server.command,
-        "mcp_server_args": config.mcp_server.args,
     }
+
+    # Include MCP server config (handle both single and comparison modes)
+    if config.comparison_mode:
+        config_def["comparison_mode"] = True
+        if config.mcp_server_a:
+            config_def["mcp_server_a_command"] = config.mcp_server_a.command
+            config_def["mcp_server_a_args"] = config.mcp_server_a.args
+        if config.mcp_server_b:
+            config_def["mcp_server_b_command"] = config.mcp_server_b.command
+            config_def["mcp_server_b_args"] = config.mcp_server_b.args
+    else:
+        if config.mcp_server:
+            config_def["mcp_server_command"] = config.mcp_server.command
+            config_def["mcp_server_args"] = config.mcp_server.args
+
     config_json = json.dumps(config_def, sort_keys=True)
     return hashlib.sha256(config_json.encode()).hexdigest()
 

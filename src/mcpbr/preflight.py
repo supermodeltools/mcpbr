@@ -101,8 +101,55 @@ def run_comprehensive_preflight(
             "Please set it before running: export ANTHROPIC_API_KEY=your-key"
         )
 
-    # 3. MCP server check
-    if config.mcp_server and config.mcp_server.command:
+    # 3. MCP server check (handle both single and comparison modes)
+    if config.comparison_mode:
+        # Check both servers in comparison mode
+        servers_ok = True
+
+        if config.mcp_server_a and config.mcp_server_a.command:
+            command_path_a = shutil.which(config.mcp_server_a.command)
+            if not command_path_a:
+                servers_ok = False
+                failures.append(
+                    f"MCP server A command '{config.mcp_server_a.command}' not found in PATH. "
+                    "Please install it or check your PATH."
+                )
+        else:
+            servers_ok = False
+            failures.append("MCP server A not configured")
+
+        if config.mcp_server_b and config.mcp_server_b.command:
+            command_path_b = shutil.which(config.mcp_server_b.command)
+            if not command_path_b:
+                servers_ok = False
+                failures.append(
+                    f"MCP server B command '{config.mcp_server_b.command}' not found in PATH. "
+                    "Please install it or check your PATH."
+                )
+        else:
+            servers_ok = False
+            failures.append("MCP server B not configured")
+
+        if servers_ok:
+            checks.append(
+                PreflightCheck(
+                    name="MCP Server",
+                    status="✓",
+                    details="Comparison mode: both servers found",
+                    critical=True,
+                )
+            )
+        else:
+            checks.append(
+                PreflightCheck(
+                    name="MCP Server",
+                    status="✗",
+                    details="Comparison mode: server(s) missing",
+                    critical=True,
+                )
+            )
+    elif config.mcp_server and config.mcp_server.command:
+        # Single server mode
         command_path = shutil.which(config.mcp_server.command)
         if command_path:
             checks.append(
