@@ -176,6 +176,7 @@ class TestComputeConfigHash:
             dataset = None
             timeout_seconds = 300
             max_iterations = 10
+            comparison_mode = False
 
             class mcp_server:
                 command = "npx"
@@ -200,6 +201,7 @@ class TestComputeConfigHash:
             dataset = None
             timeout_seconds = 300
             max_iterations = 10
+            comparison_mode = False
 
             class mcp_server:
                 command = "npx"
@@ -213,6 +215,7 @@ class TestComputeConfigHash:
             dataset = None
             timeout_seconds = 300
             max_iterations = 10
+            comparison_mode = False
 
             class mcp_server:
                 command = "npx"
@@ -401,6 +404,7 @@ class TestStateTracker:
             dataset = None
             timeout_seconds = 300
             max_iterations = 10
+            comparison_mode = False
 
             class mcp_server:
                 command = "npx"
@@ -414,6 +418,7 @@ class TestStateTracker:
             dataset = None
             timeout_seconds = 300
             max_iterations = 10
+            comparison_mode = False
 
             class mcp_server:
                 command = "npx"
