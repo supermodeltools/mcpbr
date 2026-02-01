@@ -360,14 +360,49 @@ class DockerEnvironmentManager:
         self._fallback_image_built = True
 
     def _use_fallback_image(self) -> None:
-        """Build a minimal fallback image with git if Dockerfile not found."""
+        """Build a comprehensive fallback image if Dockerfile not found.
+
+        Includes all system dependencies commonly needed for SWE-bench tasks:
+        - Version control (git)
+        - Build tools (gcc, g++, make)
+        - SSL/crypto libraries (for requests, urllib3, cryptography)
+        - Database drivers (PostgreSQL, MySQL)
+        - XML processing (lxml)
+        - Image processing (Pillow, matplotlib)
+        - Python testing tools (pytest, coverage)
+        """
         try:
-            # Build a minimal image with git installed
-            # This ensures git is available for Claude Code's /commit command
-            dockerfile_content = """
-FROM python:3.11-slim
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+            # Build a comprehensive fallback image with common SWE-bench dependencies
+            dockerfile_content = """FROM python:3.11-slim
+
+# Install system dependencies commonly needed for SWE-bench tasks
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    git \\
+    curl \\
+    wget \\
+    vim \\
+    ca-certificates \\
+    build-essential \\
+    libssl-dev \\
+    libffi-dev \\
+    libpq-dev \\
+    default-libmysqlclient-dev \\
+    libxml2-dev \\
+    libxslt1-dev \\
+    libjpeg-dev \\
+    libpng-dev \\
+    zlib1g-dev \\
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /workspace
+
+# Install common Python testing tools
+RUN pip install --no-cache-dir \\
+    pytest \\
+    pytest-xdist \\
+    coverage
+
+CMD ["/bin/bash"]
 """
             with tempfile.TemporaryDirectory() as tmpdir:
                 dockerfile_path = os.path.join(tmpdir, "Dockerfile")
@@ -379,14 +414,17 @@ WORKDIR /workspace
                     tag=self.FALLBACK_IMAGE,
                     rm=True,
                 )
-        except Exception as exc:
-            logger.warning("Failed to build fallback image with git: %s", exc)
+        except Exception as e:
             # Last resort: just tag the base image
+            logger.warning(
+                f"Failed to build comprehensive fallback image: {e}. "
+                f"Falling back to tagging python:3.11-slim as {self.FALLBACK_IMAGE}"
+            )
             try:
                 img = self.client.images.get("python:3.11-slim")
                 img.tag(self.FALLBACK_IMAGE)
-            except Exception as tag_exc:
-                logger.error("Failed to tag base image as fallback: %s", tag_exc)
+            except Exception as tag_error:
+                logger.error(f"Failed to create fallback image {self.FALLBACK_IMAGE}: {tag_error}")
                 raise
 
     async def create_environment(
