@@ -19,6 +19,7 @@ VALID_BENCHMARKS = (
     "swe-bench-verified",
     "swe-bench-full",
     "cybergym",
+    "gsm8k",
     "humaneval",
     "mcptoolbench",
 )
@@ -112,7 +113,7 @@ class HarnessConfig(BaseModel):
 
     benchmark: str = Field(
         default="swe-bench-verified",
-        description="Benchmark to run (swe-bench-lite, swe-bench-verified, swe-bench-full, cybergym, mcptoolbench)",
+        description="Benchmark to run (swe-bench-lite, swe-bench-verified, swe-bench-full, cybergym, gsm8k, humaneval, mcptoolbench)",
     )
 
     cybergym_level: int = Field(
