@@ -113,12 +113,14 @@ def check_az_subscription(subscription_id: str | None) -> tuple[bool, str]:
         return False, f"Error checking Azure subscription: {e}"
 
 
-def check_azure_quotas(location: str, vm_size: str) -> tuple[bool, str]:
-    """Check if VM size is available in the specified location.
+def check_azure_quotas(location: str, vm_size: str, zone: str | None = None) -> tuple[bool, str]:
+    """Check if VM size is available in the specified location and zone.
 
     Args:
         location: Azure region.
         vm_size: Azure VM size (e.g., Standard_D4s_v3).
+        zone: Azure availability zone (e.g., "1"). If specified, zone-specific
+            restrictions are checked instead of treating all restrictions as blocking.
 
     Returns:
         Tuple of (success, result).
@@ -127,7 +129,17 @@ def check_azure_quotas(location: str, vm_size: str) -> tuple[bool, str]:
     """
     try:
         result = subprocess.run(
-            ["az", "vm", "list-skus", "--location", location, "--output", "json"],
+            [
+                "az",
+                "vm",
+                "list-skus",
+                "--location",
+                location,
+                "--size",
+                vm_size,
+                "--output",
+                "json",
+            ],
             capture_output=True,
             text=True,
             timeout=60,
@@ -140,14 +152,33 @@ def check_azure_quotas(location: str, vm_size: str) -> tuple[bool, str]:
                 # Find the requested VM size
                 for sku in skus:
                     if sku.get("name") == vm_size:
-                        # Check if there are any restrictions
                         restrictions = sku.get("restrictions", [])
-                        if restrictions:
-                            reasons = [r.get("reasonCode", "Unknown") for r in restrictions]
-                            return (
-                                False,
-                                f"VM size {vm_size} is restricted in {location}: {', '.join(reasons)}",
-                            )
+                        if not restrictions:
+                            return True, ""
+
+                        # Check each restriction
+                        for restriction in restrictions:
+                            restriction_type = restriction.get("type", "")
+                            reason = restriction.get("reasonCode", "Unknown")
+
+                            if restriction_type == "Zone" and zone:
+                                # Zone-specific restriction: only fail if our zone is restricted
+                                restricted_zones = restriction.get("restrictionInfo", {}).get(
+                                    "zones", []
+                                )
+                                if zone in restricted_zones:
+                                    return (
+                                        False,
+                                        f"VM size {vm_size} is restricted in {location} zone {zone}: {reason}",
+                                    )
+                                # Our zone is not in the restricted list — OK
+                            else:
+                                # Location-wide restriction
+                                return (
+                                    False,
+                                    f"VM size {vm_size} is restricted in {location}: {reason}",
+                                )
+
                         return True, ""
 
                 # VM size not found in this location
@@ -207,7 +238,8 @@ def run_azure_health_checks(config: AzureConfig) -> dict[str, Any]:
 
     # Check 4: VM size/quota (only if vm_size is specified)
     if config.vm_size:
-        quota_success, quota_result = check_azure_quotas(config.location, config.vm_size)
+        zone = getattr(config, "zone", None)
+        quota_success, quota_result = check_azure_quotas(config.location, config.vm_size, zone)
         results["quotas"] = quota_success
         if not quota_success:
             results["errors"].append(f"Quotas: {quota_result}")

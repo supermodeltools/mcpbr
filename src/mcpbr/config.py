@@ -172,6 +172,10 @@ class AzureConfig(BaseModel):
         default=None,
         description="Path to SSH key for VM access (optional, auto-generated if not provided)",
     )
+    zone: str | None = Field(
+        default=None,
+        description="Azure availability zone (e.g., '1', '2', '3'). Required when VM size has zone-specific restrictions.",
+    )
     python_version: str = Field(
         default="3.11",
         description="Python version to install on VM",
