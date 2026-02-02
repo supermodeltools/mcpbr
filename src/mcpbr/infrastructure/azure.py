@@ -364,6 +364,9 @@ class AzureProvider(InfrastructureProvider):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             # Serialize config to YAML (convert Pydantic model to dict)
             config_dict = self.config.model_dump()
+            # Override infrastructure mode to local — the VM IS the infrastructure
+            if "infrastructure" in config_dict:
+                config_dict["infrastructure"]["mode"] = "local"
             yaml.dump(config_dict, f)
             temp_config_path = f.name
 
