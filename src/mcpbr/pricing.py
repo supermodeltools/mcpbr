@@ -6,6 +6,9 @@ calculating API costs based on token usage.
 Pricing is per million tokens (MTok) and is current as of January 2026.
 Prices may change - check official provider documentation for updates:
 - Anthropic: https://www.anthropic.com/pricing
+- OpenAI: https://openai.com/pricing
+- Google: https://ai.google.dev/pricing
+- Alibaba (Qwen): https://www.alibabacloud.com/help/en/model-studio/developer-reference/billing
 """
 
 from dataclasses import dataclass
@@ -89,6 +92,75 @@ MODEL_PRICING: dict[str, ModelPricing] = {
         cache_creation_price_per_mtok=1.25,
         cache_read_price_per_mtok=0.10,
         notes="Alias for latest Haiku model",
+    ),
+    # OpenAI models
+    "gpt-4o": ModelPricing(
+        model_id="gpt-4o",
+        provider="OpenAI",
+        input_price_per_mtok=2.50,
+        output_price_per_mtok=10.00,
+        notes="Most capable OpenAI model with vision",
+    ),
+    "gpt-4-turbo": ModelPricing(
+        model_id="gpt-4-turbo",
+        provider="OpenAI",
+        input_price_per_mtok=10.00,
+        output_price_per_mtok=30.00,
+        notes="High capability with faster inference",
+    ),
+    "gpt-4o-mini": ModelPricing(
+        model_id="gpt-4o-mini",
+        provider="OpenAI",
+        input_price_per_mtok=0.15,
+        output_price_per_mtok=0.60,
+        notes="Compact and cost-effective GPT-4o variant",
+    ),
+    # Google Gemini models
+    "gemini-2.0-flash": ModelPricing(
+        model_id="gemini-2.0-flash",
+        provider="Google",
+        input_price_per_mtok=0.10,
+        output_price_per_mtok=0.40,
+        notes="Latest fast Gemini model",
+    ),
+    "gemini-1.5-pro": ModelPricing(
+        model_id="gemini-1.5-pro",
+        provider="Google",
+        input_price_per_mtok=1.25,
+        output_price_per_mtok=5.00,
+        supports_prompt_caching=True,
+        cache_creation_price_per_mtok=0.3125,
+        cache_read_price_per_mtok=0.3125,
+        notes="High-capability model with 2M token context",
+    ),
+    "gemini-1.5-flash": ModelPricing(
+        model_id="gemini-1.5-flash",
+        provider="Google",
+        input_price_per_mtok=0.075,
+        output_price_per_mtok=0.30,
+        notes="Fast and cost-effective Gemini model",
+    ),
+    # Alibaba Qwen models (via DashScope)
+    "qwen-plus": ModelPricing(
+        model_id="qwen-plus",
+        provider="Alibaba",
+        input_price_per_mtok=0.40,
+        output_price_per_mtok=1.20,
+        notes="Base tier (0-256K tokens); scales to $1.20/$3.60 for 256K-1M",
+    ),
+    "qwen-turbo": ModelPricing(
+        model_id="qwen-turbo",
+        provider="Alibaba",
+        input_price_per_mtok=0.30,
+        output_price_per_mtok=0.60,
+        notes="Fast Qwen model; pricing may vary by context tier",
+    ),
+    "qwen-max": ModelPricing(
+        model_id="qwen-max",
+        provider="Alibaba",
+        input_price_per_mtok=1.20,
+        output_price_per_mtok=6.00,
+        notes="Base tier (0-32K tokens); scales to $2.40/$12.00 for 32K-128K",
     ),
 }
 
