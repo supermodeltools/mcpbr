@@ -172,7 +172,8 @@ class TestCreateProfile:
         assert profile.cap_drop == ["ALL"]
         assert profile.cap_add == MINIMAL_CAPABILITIES
         assert profile.seccomp is not None
-        assert profile.seccomp.blocked_syscalls == DANGEROUS_SYSCALLS
+        assert profile.seccomp.default_action == "SCMP_ACT_ERRNO"
+        assert len(profile.seccomp.allowed_syscalls) > 0
         assert profile.read_only_rootfs is True
         assert profile.no_new_privileges is True
         assert profile.network_disabled is True
@@ -269,7 +270,8 @@ class TestNewSandboxFields:
 
     def test_userns_mode_in_strict_profile(self) -> None:
         profile = create_profile("strict")
-        assert profile.userns_mode == "host"
+        # Strict should NOT use "host" userns -- that shares host UIDs
+        assert profile.userns_mode is None
 
     def test_userns_mode_in_docker_kwargs(self) -> None:
         profile = SandboxProfile(userns_mode="host", no_new_privileges=False)
@@ -338,6 +340,26 @@ class TestNewSandboxFields:
         }
         profile = parse_sandbox_config(config)
         assert profile.network_allowlist == ["api.example.com"]
+
+    def test_parse_network_allowlist_emits_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """network_allowlist should warn that it's not yet enforced (#418)."""
+        import logging
+
+        sandbox_logger = logging.getLogger("mcpbr.sandbox")
+        sandbox_logger.addHandler(caplog.handler)
+        caplog.set_level(logging.WARNING, logger="mcpbr.sandbox")
+        try:
+            parse_sandbox_config(
+                {
+                    "level": "standard",
+                    "network_allowlist": ["api.example.com"],
+                }
+            )
+            assert any(
+                "network_allowlist" in m and "not yet enforced" in m for m in caplog.messages
+            )
+        finally:
+            sandbox_logger.removeHandler(caplog.handler)
 
 
 class TestValidateSandbox:
@@ -415,3 +437,273 @@ class TestValidateSandbox:
         valid, mismatches = validate_sandbox(container_attrs, profile)
         assert valid is True
         assert mismatches == []
+
+
+class TestStrictSeccompAllowlist:
+    """Tests for #417: Strict mode must use default-deny seccomp with allowlist."""
+
+    def test_strict_seccomp_default_action_is_errno(self) -> None:
+        """Strict profile must use SCMP_ACT_ERRNO (default-deny), not SCMP_ACT_ALLOW."""
+        profile = create_profile("strict")
+        assert profile.seccomp is not None
+        assert profile.seccomp.default_action == "SCMP_ACT_ERRNO"
+
+    def test_strict_seccomp_has_allowed_syscalls(self) -> None:
+        """Strict profile must have an explicit allowlist of permitted syscalls."""
+        profile = create_profile("strict")
+        assert profile.seccomp is not None
+        assert len(profile.seccomp.allowed_syscalls) > 0
+
+    def test_strict_seccomp_allows_basic_operations(self) -> None:
+        """Strict allowlist must include syscalls needed for Python/shell execution."""
+        profile = create_profile("strict")
+        assert profile.seccomp is not None
+        required = [
+            "read",
+            "write",
+            "openat",
+            "close",
+            "mmap",
+            "execve",
+            "exit_group",
+            "brk",
+            "clone",
+            "wait4",
+            "getpid",
+            "fcntl",
+            "fstat",
+        ]
+        for sc in required:
+            assert sc in profile.seccomp.allowed_syscalls, f"Missing required syscall: {sc}"
+
+    def test_strict_seccomp_blocks_container_escape_syscalls(self) -> None:
+        """Strict allowlist must NOT include known container escape syscalls."""
+        profile = create_profile("strict")
+        assert profile.seccomp is not None
+        forbidden = [
+            "mount",
+            "umount2",
+            "pivot_root",
+            "unshare",
+            "setns",
+            "kexec_load",
+            "init_module",
+            "finit_module",
+            "delete_module",
+            "open_by_handle_at",
+            "bpf",
+            "userfaultfd",
+            "io_uring_setup",
+            "io_uring_enter",
+            "io_uring_register",
+            "process_vm_readv",
+            "process_vm_writev",
+            "keyctl",
+            "request_key",
+            "add_key",
+            "ptrace",
+            "reboot",
+        ]
+        for sc in forbidden:
+            assert sc not in profile.seccomp.allowed_syscalls, (
+                f"Dangerous syscall in allowlist: {sc}"
+            )
+
+    def test_strict_seccomp_docker_format_has_allow_rule(self) -> None:
+        """Docker seccomp JSON must have an ALLOW rule for allowed syscalls."""
+        profile = create_profile("strict")
+        assert profile.seccomp is not None
+        docker_fmt = profile.seccomp.to_docker_format()
+        assert docker_fmt["defaultAction"] == "SCMP_ACT_ERRNO"
+        allow_rules = [r for r in docker_fmt["syscalls"] if r["action"] == "SCMP_ACT_ALLOW"]
+        assert len(allow_rules) == 1
+        assert len(allow_rules[0]["names"]) > 0
+
+    def test_strict_minimal_capabilities_no_dac_override(self) -> None:
+        """MINIMAL_CAPABILITIES must not include DAC_OVERRIDE (root-like file access)."""
+        assert "DAC_OVERRIDE" not in MINIMAL_CAPABILITIES
+
+    def test_strict_minimal_capabilities_no_fowner(self) -> None:
+        """MINIMAL_CAPABILITIES must not include FOWNER."""
+        assert "FOWNER" not in MINIMAL_CAPABILITIES
+
+    def test_strict_minimal_capabilities_no_net_bind_service(self) -> None:
+        """MINIMAL_CAPABILITIES must not include NET_BIND_SERVICE (useless with network disabled)."""
+        assert "NET_BIND_SERVICE" not in MINIMAL_CAPABILITIES
+
+    def test_strict_userns_mode_not_host(self) -> None:
+        """Strict profile must not use userns_mode='host' (shares host UIDs)."""
+        profile = create_profile("strict")
+        assert profile.userns_mode != "host"
+
+    def test_seccomp_profile_with_allowlist_docker_format(self) -> None:
+        """SeccompProfile with allowed_syscalls generates proper Docker JSON."""
+        sp = SeccompProfile(
+            default_action="SCMP_ACT_ERRNO",
+            allowed_syscalls=["read", "write", "close"],
+        )
+        fmt = sp.to_docker_format()
+        assert fmt["defaultAction"] == "SCMP_ACT_ERRNO"
+        assert len(fmt["syscalls"]) == 1
+        assert fmt["syscalls"][0]["action"] == "SCMP_ACT_ALLOW"
+        assert sorted(fmt["syscalls"][0]["names"]) == ["close", "read", "write"]
+
+    def test_seccomp_profile_blocklist_still_works(self) -> None:
+        """Existing blocklist approach still works for backward compatibility."""
+        sp = SeccompProfile(
+            default_action="SCMP_ACT_ALLOW",
+            blocked_syscalls=["mount", "ptrace"],
+        )
+        fmt = sp.to_docker_format()
+        assert fmt["defaultAction"] == "SCMP_ACT_ALLOW"
+        assert fmt["syscalls"][0]["action"] == "SCMP_ACT_ERRNO"
+        assert "mount" in fmt["syscalls"][0]["names"]
+
+
+class TestValidateSandboxStrictMode:
+    """Tests for #427: validate_sandbox raises errors in strict mode."""
+
+    def test_strict_mode_raises_on_cap_drop_mismatch(self) -> None:
+        """In strict mode, cap_drop mismatch should raise ValueError."""
+        profile = SandboxProfile(
+            cap_drop=["ALL"],
+            cap_add=[],
+            no_new_privileges=False,
+            security_level=SecurityLevel.STRICT,
+        )
+        container_attrs = {"CapDrop": ["SYS_ADMIN"]}
+        with pytest.raises(ValueError, match="cap_drop"):
+            validate_sandbox(container_attrs, profile)
+
+    def test_strict_mode_raises_on_network_mismatch(self) -> None:
+        """In strict mode, network_mode mismatch should raise ValueError."""
+        profile = SandboxProfile(
+            network_disabled=True,
+            no_new_privileges=False,
+            security_level=SecurityLevel.STRICT,
+        )
+        container_attrs = {"NetworkMode": "bridge"}
+        with pytest.raises(ValueError, match="network_mode"):
+            validate_sandbox(container_attrs, profile)
+
+    def test_strict_mode_raises_on_read_only_mismatch(self) -> None:
+        """In strict mode, read_only_rootfs mismatch should raise ValueError."""
+        profile = SandboxProfile(
+            read_only_rootfs=True,
+            no_new_privileges=False,
+            security_level=SecurityLevel.STRICT,
+        )
+        container_attrs = {"ReadonlyRootfs": False}
+        with pytest.raises(ValueError, match="read_only_rootfs"):
+            validate_sandbox(container_attrs, profile)
+
+    def test_strict_mode_raises_on_no_new_privileges_mismatch(self) -> None:
+        """In strict mode, no_new_privileges mismatch should raise ValueError."""
+        profile = SandboxProfile(
+            no_new_privileges=True,
+            security_level=SecurityLevel.STRICT,
+        )
+        container_attrs = {"SecurityOpt": []}
+        with pytest.raises(ValueError, match="no_new_privileges"):
+            validate_sandbox(container_attrs, profile)
+
+    def test_strict_mode_raises_on_cap_add_mismatch(self) -> None:
+        """In strict mode, cap_add mismatch should raise ValueError."""
+        profile = SandboxProfile(
+            cap_add=["CHOWN", "SETUID"],
+            no_new_privileges=False,
+            security_level=SecurityLevel.STRICT,
+        )
+        container_attrs = {"CapAdd": ["CHOWN"]}
+        with pytest.raises(ValueError, match="cap_add"):
+            validate_sandbox(container_attrs, profile)
+
+    def test_strict_mode_raises_on_userns_mismatch(self) -> None:
+        """In strict mode, userns_mode mismatch should raise ValueError."""
+        profile = SandboxProfile(
+            userns_mode="host",
+            no_new_privileges=False,
+            security_level=SecurityLevel.STRICT,
+        )
+        container_attrs = {"UsernsMode": ""}
+        with pytest.raises(ValueError, match="userns_mode"):
+            validate_sandbox(container_attrs, profile)
+
+    def test_strict_mode_valid_profile_passes(self) -> None:
+        """In strict mode, a valid container should still pass without error."""
+        profile = SandboxProfile(
+            cap_drop=["ALL"],
+            cap_add=["CHOWN"],
+            no_new_privileges=True,
+            read_only_rootfs=True,
+            network_disabled=True,
+            userns_mode="host",
+            security_level=SecurityLevel.STRICT,
+        )
+        container_attrs = {
+            "CapDrop": ["ALL"],
+            "CapAdd": ["CHOWN"],
+            "ReadonlyRootfs": True,
+            "NetworkMode": "none",
+            "SecurityOpt": ["no-new-privileges:true"],
+            "UsernsMode": "host",
+        }
+        valid, mismatches = validate_sandbox(container_attrs, profile)
+        assert valid is True
+        assert mismatches == []
+
+    def test_strict_mode_raises_with_multiple_mismatches(self) -> None:
+        """In strict mode with multiple mismatches, ValueError should list all of them."""
+        profile = SandboxProfile(
+            cap_drop=["ALL"],
+            read_only_rootfs=True,
+            network_disabled=True,
+            no_new_privileges=False,
+            security_level=SecurityLevel.STRICT,
+        )
+        container_attrs = {
+            "CapDrop": [],
+            "ReadonlyRootfs": False,
+            "NetworkMode": "bridge",
+        }
+        with pytest.raises(ValueError, match="Sandbox validation failed"):
+            validate_sandbox(container_attrs, profile)
+
+    def test_standard_mode_warns_but_does_not_raise(self, caplog: pytest.LogCaptureFixture) -> None:
+        """In standard mode, mismatches should warn but NOT raise (backward compat)."""
+        import logging
+
+        sandbox_logger = logging.getLogger("mcpbr.sandbox")
+        sandbox_logger.addHandler(caplog.handler)
+        caplog.set_level(logging.WARNING, logger="mcpbr.sandbox")
+        try:
+            profile = SandboxProfile(
+                cap_drop=["SYS_ADMIN", "NET_ADMIN"],
+                no_new_privileges=False,
+                security_level=SecurityLevel.STANDARD,
+            )
+            container_attrs = {"CapDrop": ["SYS_ADMIN"]}
+            valid, mismatches = validate_sandbox(container_attrs, profile)
+            assert valid is False
+            assert len(mismatches) > 0
+            assert any("cap_drop" in m for m in caplog.messages)
+        finally:
+            sandbox_logger.removeHandler(caplog.handler)
+
+    def test_permissive_mode_warns_but_does_not_raise(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """In permissive mode, mismatches should warn but NOT raise (backward compat)."""
+        import logging
+
+        profile = SandboxProfile(
+            cap_drop=["SYS_ADMIN"],
+            no_new_privileges=False,
+            security_level=SecurityLevel.PERMISSIVE,
+        )
+        container_attrs = {"CapDrop": []}
+        with caplog.at_level(logging.WARNING):
+            valid, mismatches = validate_sandbox(container_attrs, profile)
+        assert valid is False
+        assert len(mismatches) > 0
+        # Should NOT have raised

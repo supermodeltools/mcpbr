@@ -26,6 +26,7 @@ def mock_config() -> MagicMock:
     config.infrastructure.kubernetes.ttl_seconds_after_finished = 3600
     config.infrastructure.kubernetes.env_keys_to_export = ["ANTHROPIC_API_KEY"]
     config.infrastructure.kubernetes.enable_dind = False
+    config.infrastructure.kubernetes.dind_privileged = False
     config.infrastructure.kubernetes.auto_cleanup = True
     config.infrastructure.kubernetes.preserve_on_error = True
     config.infrastructure.kubernetes.node_selector = {}
@@ -555,3 +556,153 @@ class TestExtractJsonResults:
         )
         result = KubernetesProvider._extract_json_results(log_output)
         assert result is not None
+
+
+# ============================================================================
+# Async Safety Tests (issue #424)
+# ============================================================================
+
+
+class TestAsyncSafety:
+    """Test that async methods do not call run_until_complete from a running loop."""
+
+    @patch.object(KubernetesProvider, "_run_kubectl")
+    async def test_aggregate_results_works_in_async_context(
+        self,
+        mock_kubectl: MagicMock,
+        k8s_provider: KubernetesProvider,
+    ) -> None:
+        """Test _aggregate_results works when called from an async context.
+
+        Previously, _aggregate_results called
+        asyncio.get_event_loop().run_until_complete() which raises
+        RuntimeError when already inside a running event loop.
+        """
+        k8s_provider.namespace = "mcpbr"
+        k8s_provider.job_name = "mcpbr-eval-123"
+
+        # Mock _run_kubectl: first call for _get_pod_names, rest for pod logs
+        pod_names_result = Mock(returncode=0, stdout="pod-1 pod-2")
+        log_result = Mock(
+            returncode=0,
+            stdout='{"metadata": {}, "summary": {"total_cost": 0.1, '
+            '"total_tokens_input": 100, "total_tokens_output": 50}, '
+            '"tasks": [{"mcp": {"resolved": true}}]}',
+        )
+        mock_kubectl.side_effect = [pod_names_result, log_result, log_result]
+
+        result = await k8s_provider._aggregate_results()
+        assert result["summary"]["total_tasks"] == 2
+        assert result["metadata"]["infrastructure"] == "kubernetes"
+
+    @patch.object(KubernetesProvider, "_run_kubectl")
+    @patch.object(KubernetesProvider, "_aggregate_results")
+    async def test_collect_artifacts_calls_aggregate_from_async(
+        self,
+        mock_aggregate: MagicMock,
+        mock_kubectl: MagicMock,
+        k8s_provider: KubernetesProvider,
+        tmp_path,
+    ) -> None:
+        """Test collect_artifacts can call _aggregate_results from async context."""
+        k8s_provider.namespace = "mcpbr"
+        k8s_provider.job_name = "mcpbr-eval-123"
+
+        # Mock _get_pod_names via _run_kubectl
+        mock_kubectl.return_value = Mock(returncode=0, stdout="pod-1")
+        mock_aggregate.return_value = {
+            "metadata": {},
+            "summary": {},
+            "tasks": [],
+        }
+
+        output_dir = tmp_path / "artifacts"
+        archive_path = await k8s_provider.collect_artifacts(output_dir)
+        assert archive_path.exists()
+
+
+# ============================================================================
+# DinD Security Tests (issue #426)
+# ============================================================================
+
+
+class TestDinDSecurityDefaults:
+    """Test that DinD sidecar does NOT use --privileged by default."""
+
+    def test_dind_not_privileged_by_default(self, k8s_provider: KubernetesProvider) -> None:
+        """Test DinD sidecar does not run with privileged:true by default.
+
+        Previously, the DinD sidecar unconditionally set
+        securityContext.privileged = True, which grants the container full
+        host access. The default should be unprivileged (using sysbox or
+        rootless mode).
+        """
+        k8s_provider.namespace = "mcpbr"
+        k8s_provider.k8s_config.enable_dind = True
+        # Do NOT explicitly set dind_privileged — test the default
+
+        manifest = k8s_provider._generate_job_manifest("test-cm", None)
+
+        containers = manifest["spec"]["template"]["spec"]["containers"]
+        dind = next(c for c in containers if c["name"] == "dind")
+        security_ctx = dind.get("securityContext", {})
+        assert security_ctx.get("privileged") is not True, (
+            "DinD sidecar must NOT default to privileged mode"
+        )
+
+    def test_dind_privileged_when_explicitly_enabled(
+        self, k8s_provider: KubernetesProvider
+    ) -> None:
+        """Test DinD uses privileged mode only when explicitly requested."""
+        k8s_provider.namespace = "mcpbr"
+        k8s_provider.k8s_config.enable_dind = True
+        k8s_provider.k8s_config.dind_privileged = True
+
+        manifest = k8s_provider._generate_job_manifest("test-cm", None)
+
+        containers = manifest["spec"]["template"]["spec"]["containers"]
+        dind = next(c for c in containers if c["name"] == "dind")
+        security_ctx = dind.get("securityContext", {})
+        assert security_ctx.get("privileged") is True
+
+    def test_dind_rootless_image_by_default(self, k8s_provider: KubernetesProvider) -> None:
+        """Test DinD uses rootless image variant by default."""
+        k8s_provider.namespace = "mcpbr"
+        k8s_provider.k8s_config.enable_dind = True
+
+        manifest = k8s_provider._generate_job_manifest("test-cm", None)
+
+        containers = manifest["spec"]["template"]["spec"]["containers"]
+        dind = next(c for c in containers if c["name"] == "dind")
+        assert "rootless" in dind["image"], "DinD should use rootless image variant by default"
+
+    def test_dind_privileged_uses_standard_image(self, k8s_provider: KubernetesProvider) -> None:
+        """Test DinD uses standard (non-rootless) image when privileged."""
+        k8s_provider.namespace = "mcpbr"
+        k8s_provider.k8s_config.enable_dind = True
+        k8s_provider.k8s_config.dind_privileged = True
+
+        manifest = k8s_provider._generate_job_manifest("test-cm", None)
+
+        containers = manifest["spec"]["template"]["spec"]["containers"]
+        dind = next(c for c in containers if c["name"] == "dind")
+        assert "rootless" not in dind["image"]
+        assert security_ctx_privileged(dind)
+
+    def test_existing_dind_test_still_passes_with_explicit_flag(
+        self, k8s_provider: KubernetesProvider
+    ) -> None:
+        """Verify backward compat: DinD sidecar present when enable_dind=True."""
+        k8s_provider.namespace = "mcpbr"
+        k8s_provider.k8s_config.enable_dind = True
+
+        manifest = k8s_provider._generate_job_manifest("test-cm", None)
+
+        containers = manifest["spec"]["template"]["spec"]["containers"]
+        container_names = [c["name"] for c in containers]
+        assert "dind" in container_names
+
+
+def security_ctx_privileged(container: dict) -> bool:
+    """Helper to check if a container has privileged security context."""
+    return container.get("securityContext", {}).get("privileged") is True
