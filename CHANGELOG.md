@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-02-07
+
+### Added
+
+- **Docker sandbox enhancements** (#381): Extended sandbox security profiles with new isolation features
+  - User namespace remapping (`userns_mode`) for container user isolation
+  - I/O rate limits (`device_read_bps`, `device_write_bps`) for disk throughput control
+  - Network allowlist (`network_allowlist`) for fine-grained network access control
+  - Sandbox validation (`validate_sandbox()`) to verify container settings match the profile
+  - Per-benchmark sandbox defaults: CyberGym and Adversarial benchmarks default to strict mode
+  - Audit logging for sandbox events (`SANDBOX_APPLIED`, `SANDBOX_VALIDATED`)
+  - Strict profile now enables user namespace remapping by default
+- **Prompt security scanning** (#108): Detect prompt injection attacks in benchmark tasks
+  - 10 built-in detection patterns: instruction override, identity injection, system prompt leak,
+    jailbreak prefixes (DAN/STAN/DUDE/AIM), role-play injection, base64 injection, unicode
+    obfuscation, shell injection, reverse shell, and delimiter injection
+  - Configurable scan levels: `full` (all patterns) or `minimal` (HIGH/CRITICAL only)
+  - Three action modes: `audit` (log only), `warn` (log warnings), `block` (skip task)
+  - Custom pattern support via YAML configuration
+  - Allowlist patterns to suppress false positives
+  - Audit logging for scan findings (`SECURITY_SCAN_FINDING`, `SECURITY_SCAN_BLOCKED`)
+  - New `prompt_security` configuration section in YAML
+
 ### Fixed
 
 - **Misleading 'no changes detected' error** (#409): When an agent wrote changes that were
@@ -959,6 +982,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--no-prebuilt` CLI flag to disable pre-built images and build from scratch
 - Network access for containers to enable API calls from within Docker
 
+[0.12.0]: https://github.com/greynewell/mcpbr/releases/tag/v0.12.0
 [0.5.5]: https://github.com/greynewell/mcpbr/releases/tag/v0.5.5
 [0.4.4]: https://github.com/greynewell/mcpbr/releases/tag/v0.4.4
 [0.4.3]: https://github.com/greynewell/mcpbr/releases/tag/v0.4.3
