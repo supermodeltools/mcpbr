@@ -346,7 +346,7 @@ class AzureProvider(InfrastructureProvider):
 
         # Step 4: Install mcpbr (pin to local version)
         console.print(f"[cyan]Installing mcpbr=={__version__}...[/cyan]")
-        step4_cmd = f"python{py_ver} -m pip install mcpbr=={__version__}"
+        step4_cmd = f"python{py_ver} -m pip install 'mcpbr[slack]=={__version__}'"
         exit_code, _stdout, stderr = await self._ssh_exec(step4_cmd, timeout=300)
         if exit_code != 0:
             console.print(f"[yellow]⚠ mcpbr install issues: {stderr[:300]}[/yellow]")
@@ -612,27 +612,111 @@ class AzureProvider(InfrastructureProvider):
             for task_id in self.config.task_ids:
                 flags.append(f"-t {shlex.quote(task_id)}")
 
-        # Execute mcpbr
+        # Execute mcpbr in a detached process so it survives SSH drops
         raw_cmd = f"{self._mcpbr_cmd()} run -c ~/config.yaml {' '.join(flags)}"
         console.print(f"[dim]Running: {raw_cmd}[/dim]")
 
-        # Wrap with bash login shell + docker group access
-        cmd = self._wrap_cmd(raw_cmd)
-        _stdin, stdout, stderr = self.ssh_client.exec_command(cmd)
+        log_path = "/home/azureuser/mcpbr_eval.log"
+        pid_path = "/home/azureuser/mcpbr_eval.pid"
+        exit_code_path = "/home/azureuser/mcpbr_eval.exit"
+        # Launch via nohup + setsid so the process is fully detached from SSH.
+        # The child writes its own PID ($$) so we track the session leader,
+        # not the intermediate setsid parent which exits immediately.
+        detached_cmd = (
+            f"nohup setsid bash -lc '"
+            f'echo $$ > {pid_path}; sg docker -c "{raw_cmd}" > {log_path} 2>&1; '
+            f"echo $? > {exit_code_path}' &\n"
+            f"disown\n"
+            f"sleep 1\n"
+            f"echo LAUNCHED"
+        )
+        _stdin, stdout, _stderr = self.ssh_client.exec_command(detached_cmd, timeout=30)
+        launch_output = stdout.read().decode().strip()
+        if "LAUNCHED" not in launch_output:
+            raise RuntimeError(f"Failed to launch detached eval: {launch_output}")
+        console.print("[green]✓ Evaluation launched (detached)[/green]")
 
-        # Stream output line by line
-        for line in stdout:
-            console.print(line.rstrip())
+        # Tail the log over SSH, reconnecting if the connection drops
+        last_offset = 0
+        poll_interval = 10
+        max_reconnect_attempts = 10
+        reconnect_failures = 0
+        # 24h overall deadline for the evaluation
+        deadline = time.time() + 24 * 3600
+        ssh_exceptions = (OSError, EOFError)
+        if paramiko is not None:
+            ssh_exceptions = (OSError, EOFError, paramiko.SSHException)
 
-        # Wait for completion
-        exit_code = stdout.channel.recv_exit_status()
+        while time.time() < deadline:
+            try:
+                # Check if process is still running
+                check_cmd = (
+                    f"cat {exit_code_path} 2>/dev/null || "
+                    f"(kill -0 $(cat {pid_path}) 2>/dev/null "
+                    f"&& echo RUNNING || echo DEAD)"
+                )
+                _sin, sout, _serr = self.ssh_client.exec_command(check_cmd)
+                status = sout.read().decode().strip()
+
+                # Read new log output
+                tail_cmd = f"tail -c +{last_offset + 1} {log_path} 2>/dev/null"
+                _sin, sout, _serr = self.ssh_client.exec_command(tail_cmd)
+                new_output = sout.read().decode()
+                if new_output:
+                    for line in new_output.splitlines():
+                        console.print(line)
+                    last_offset += len(new_output.encode())
+
+                # Reset reconnect counter on successful poll
+                reconnect_failures = 0
+
+                # Check completion
+                if status == "RUNNING":
+                    await asyncio.sleep(poll_interval)
+                    continue
+                elif status == "DEAD":
+                    self._error_occurred = True
+                    raise RuntimeError("Evaluation process died unexpectedly")
+                else:
+                    # status should be the exit code
+                    try:
+                        exit_code = int(status)
+                    except ValueError:
+                        # Transient read — file may be partially written
+                        await asyncio.sleep(poll_interval)
+                        continue
+                    break
+            except ssh_exceptions:
+                # SSH connection dropped — reconnect
+                reconnect_failures += 1
+                if reconnect_failures > max_reconnect_attempts:
+                    self._error_occurred = True
+                    raise RuntimeError(
+                        f"SSH reconnect failed after {max_reconnect_attempts} attempts"
+                    )
+                console.print(
+                    f"[yellow]SSH connection lost, reconnecting "
+                    f"(attempt {reconnect_failures}/{max_reconnect_attempts})...[/yellow]"
+                )
+                await asyncio.sleep(10)
+                try:
+                    await self._wait_for_ssh()
+                    console.print("[green]✓ SSH reconnected[/green]")
+                except Exception:
+                    console.print("[yellow]Reconnect failed, retrying in 30s...[/yellow]")
+                    await asyncio.sleep(30)
+        else:
+            self._error_occurred = True
+            raise RuntimeError("Evaluation timed out (exceeded 24h deadline)")
 
         if exit_code != 0:
             self._error_occurred = True
-            stderr_output = stderr.read().decode()
+            # Read any remaining stderr from the log
+            _sin, sout, _serr = self.ssh_client.exec_command(f"tail -50 {log_path}")
+            tail_output = sout.read().decode()
             console.print(f"[red]✗ Evaluation failed with exit code {exit_code}[/red]")
-            console.print(f"[red]{stderr_output[:2000]}[/red]")
-            raise RuntimeError(f"Evaluation failed: {stderr_output[:500]}")
+            console.print(f"[red]{tail_output[:2000]}[/red]")
+            raise RuntimeError(f"Evaluation failed with exit code {exit_code}")
 
         console.print("[green]✓ Evaluation completed successfully[/green]")
 
