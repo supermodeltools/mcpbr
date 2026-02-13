@@ -7,7 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.12.6] - $RELEASE_DATE
+## [0.13.0] - 2026-02-13
+
+### Fixed
+
+- **Zombie Docker containers** (#439): Containers left running indefinitely after task completion
+  (observed 15+ hours in a 500-task eval). `TaskEnvironment.cleanup()` now retries
+  `container.remove()` up to 3 times with backoff, logs warnings instead of silently swallowing
+  errors, and handles `docker.errors.NotFound` gracefully. Successful cleanup removes the container
+  from the tracking list; failed cleanup keeps it for `cleanup_all_sync` to retry at exit.
+  New `cleanup_stale_session_containers()` method removes orphans from previous sessions at startup.
+- **setup_command cache not found by MCP server** (#440): `basename("/workspace")` returned
+  `"workspace"` which didn't match the repo name used as cache key, causing 5/446 tasks (1.1%)
+  to time out with 0 iterations. Added `repo`, `base_commit` fields and `repo_name` property to
+  `TaskEnvironment`. Injects `MCPBR_REPO`, `MCPBR_REPO_NAME`, `MCPBR_BASE_COMMIT`,
+  `MCPBR_INSTANCE_ID` env vars into `run_setup_command`, `_solve_in_docker` env file, and
+  `.mcp.json` env block so the MCP server can locate cached data by repo name.
+
+### Added
+
+- **Config placeholder expansion** (#440): `{repo}`, `{repo_name}`, `{base_commit}`, and
+  `{instance_id}` placeholders in `mcp_server.args` and `mcp_server.setup_command` are now
+  expanded automatically, in addition to the existing `{workdir}`
+
+## [0.12.8] - 2026-02-13
+
+### Fixed
+
+- **Config `task_ids` ignored for local runs** (#458): Falls back to `config.task_ids` when no
+  CLI `--task` flags are provided
+- **Progress output unparseable when piped** (#459): Emits plain-text `[START]`/`[DONE]`/
+  `[ERROR]`/`[SKIP]`/`[SUMMARY]` lines to stderr when not connected to a TTY
+- **Containers OOM-kill each other under concurrency** (#460): Adds `mem_limit=4g` /
+  `memswap_limit=6g` defaults to container creation
+
+## [0.12.7] - 2026-02-13
+
+### Fixed
+
+- **Conda testbed environment not activated for agent** (#457): Prebuilt SWE-bench Docker images
+  install project dependencies in a conda `testbed` environment, but the agent ran with system
+  Python which lacked these packages. The agent's self-verification attempts (e.g.
+  `python -m pytest`) failed with `ModuleNotFoundError`. Now prepends conda testbed activation
+  to the env file sourced before launching Claude, so the agent and its Bash tool children
+  inherit the correct PATH
+
+## [0.12.6] - 2026-02-13
 
 ### Changed
 
