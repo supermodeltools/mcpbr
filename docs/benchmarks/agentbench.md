@@ -1,4 +1,5 @@
 ---
+title: "AgentBench: Autonomous Agent Evaluation Across OS, Database & Web"
 description: "AgentBench benchmark for evaluating LLMs as autonomous agents across diverse environments including OS, databases, and web."
 benchmark_howto:
   name: "AgentBench"

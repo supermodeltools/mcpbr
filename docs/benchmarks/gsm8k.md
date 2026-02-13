@@ -1,4 +1,5 @@
 ---
+title: "GSM8K: Grade-School Math Reasoning Benchmark (1,319 Problems)"
 description: "GSM8K evaluates mathematical reasoning on 1,319 grade-school math word problems, testing chain-of-thought reasoning and numeric answer extraction with tolerance-based comparison."
 benchmark_howto:
   name: "GSM8K"

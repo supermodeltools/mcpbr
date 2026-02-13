@@ -1,4 +1,5 @@
 ---
+title: "All Benchmarks: 25+ AI Evaluation Suites for MCP Servers"
 description: "Overview of all benchmarks supported by mcpbr for evaluating MCP servers and AI agent capabilities across software engineering, code generation, math reasoning, knowledge, tool use, and security."
 faq:
   - q: "What benchmarks does mcpbr support?"

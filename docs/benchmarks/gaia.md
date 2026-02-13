@@ -1,4 +1,5 @@
 ---
+title: "GAIA: General AI Assistant Benchmark for Reasoning & Tool Use"
 description: "GAIA evaluates general AI assistant capabilities including multi-step reasoning, web browsing, tool use, and multi-modality on real-world questions with unambiguous answers."
 benchmark_howto:
   name: "GAIA"

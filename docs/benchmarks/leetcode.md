@@ -1,4 +1,5 @@
 ---
+title: "LeetCode: Algorithmic Coding Problems for AI Agent Evaluation"
 description: "LeetCode evaluates AI agents on algorithmic coding problems across easy, medium, and hard difficulty levels, covering data structures, algorithms, and common interview topics."
 benchmark_howto:
   name: "LeetCode"

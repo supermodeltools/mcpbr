@@ -85,6 +85,42 @@
   </script>
   {% endif %}
 
+  {# Cross-link box styles for benchmark pages #}
+  {% if page and page.meta and page.meta.benchmark_howto %}
+  <style>
+    .mcpbr-author-box {
+      margin-top: 2.5rem;
+      padding: 1.25rem 1.5rem;
+      border: 1px solid var(--md-default-fg-color--lightest);
+      border-left: 4px solid #7e56c2;
+      border-radius: 4px;
+      background: var(--md-code-bg-color);
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    .mcpbr-author-box strong {
+      font-size: 0.95rem;
+    }
+    .mcpbr-author-box p {
+      margin: 0.5rem 0 0;
+    }
+    .mcpbr-author-box a {
+      color: #7e56c2;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .mcpbr-author-box a:hover {
+      text-decoration: underline;
+    }
+    .mcpbr-author-links {
+      margin-top: 0.75rem;
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+  </style>
+  {% endif %}
+
   {# Software Application Structured Data for Home Page #}
   {% if page and (page.is_homepage or page.url == '.' or page.url == '') %}
   <script type="application/ld+json">
@@ -107,5 +143,20 @@
     }
   }
   </script>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  {{ super() }}
+  {% if page and page.meta and page.meta.benchmark_howto %}
+  <div class="mcpbr-author-box">
+    <strong>mcpbr</strong> — Open-Source Benchmark Runner for MCP Servers
+    <p>mcpbr is developed by <a href="https://greynewell.com/" target="_blank" rel="noopener">Grey Newell</a>, a Computer Science researcher at Georgia Institute of Technology specializing in AI systems and the Model Context Protocol.</p>
+    <div class="mcpbr-author-links">
+      <a href="https://github.com/greynewell/mcpbr" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://pypi.org/project/mcpbr/" target="_blank" rel="noopener">PyPI</a>
+      <a href="https://greynewell.com/" target="_blank" rel="noopener">Author</a>
+    </div>
+  </div>
   {% endif %}
 {% endblock %}

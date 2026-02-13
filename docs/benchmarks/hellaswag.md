@@ -1,4 +1,5 @@
 ---
+title: "HellaSwag: Commonsense Reasoning Through Sentence Completion"
 description: "HellaSwag benchmark for evaluating commonsense reasoning through adversarially filtered sentence completion."
 benchmark_howto:
   name: "HellaSwag"

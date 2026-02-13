@@ -1,4 +1,5 @@
 ---
+title: "MLAgentBench: Real ML Research Tasks from Kaggle Competitions"
 description: "MLAgentBench evaluates AI agents on real ML research tasks based on Kaggle competitions, testing their ability to train models, improve performance metrics, and debug ML pipelines."
 benchmark_howto:
   name: "MLAgentBench"

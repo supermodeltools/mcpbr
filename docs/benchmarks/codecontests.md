@@ -1,4 +1,5 @@
 ---
+title: "CodeContests: Competitive Programming Benchmark from Codeforces & CodeChef"
 description: "CodeContests evaluates AI agents on competitive programming problems from Codeforces, CodeChef, and other platforms, featuring public and private test cases with time and memory constraints."
 benchmark_howto:
   name: "CodeContests"
@@ -11,6 +12,10 @@ faq:
     a: "CodeContests includes problems from more diverse platforms and features both public and private test cases. It also includes per-task time_limit and memory_limit_bytes constraints. The problems tend to be more algorithmically challenging than APPS introductory problems."
   - q: "Are there per-problem time and memory limits?"
     a: "Yes. Each CodeContests problem may include time_limit and memory_limit_bytes fields that specify the execution constraints from the original platform. These are stored in task metadata for reference, though the evaluation uses a fixed per-test-case timeout."
+  - q: "What is the CodeContests dataset from DeepMind and where can I find it?"
+    a: "CodeContests is a competitive programming dataset released by DeepMind, available on HuggingFace at deepmind/code_contests. It contains problems sourced from Codeforces, CodeChef, HackerEarth, AtCoder, and other platforms. Each problem includes a description, input/output specifications, public test cases, and hidden private test cases for thorough evaluation."
+  - q: "How does CodeContests evaluate code generation compared to other benchmarks?"
+    a: "CodeContests uses a two-tier test case evaluation: solutions must first pass all public test cases (visible to the agent), then pass hidden private test cases. This mirrors real competitive programming judging. Unlike HumanEval or MBPP which test isolated functions, CodeContests problems require complete programs that read from stdin and write to stdout."
 ---
 
 # CodeContests

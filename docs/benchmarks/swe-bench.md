@@ -1,4 +1,5 @@
 ---
+title: "SWE-bench: Real GitHub Bug Fix Evaluation & Setup Guide"
 description: "SWE-bench evaluates AI agents on real-world GitHub bug fixes, testing their ability to generate patches that resolve actual software issues from popular Python repositories."
 benchmark_howto:
   name: "SWE-bench"
@@ -11,6 +12,12 @@ faq:
     a: "Pre-built images from Epoch AI are recommended but not required. They include the repository at the correct commit with all dependencies pre-installed, which provides faster and more reliable evaluation. Without them, mcpbr will build environments from scratch."
   - q: "How do I filter SWE-bench tasks by repository?"
     a: "Use the filter_category option with repository name patterns. For example, '--filter-category django' will select only Django-related tasks. You can specify multiple categories to include tasks from several repositories."
+  - q: "How do I set up the SWE-bench repository environment and install dependencies for Django tasks?"
+    a: "mcpbr handles repository environment setup automatically when you use pre-built Docker images (use_prebuilt_images: true). Each image contains the repository checked out at the correct commit with all Python dependencies pre-installed. For Django tasks specifically, this includes Django itself and its test dependencies. Without pre-built images, mcpbr clones the repository and runs the installation steps from scratch, which can be slower and less reliable for complex projects like Django."
+  - q: "What Python repositories are included in SWE-bench?"
+    a: "SWE-bench includes tasks from 12 popular Python repositories: django/django, scikit-learn/scikit-learn, matplotlib/matplotlib, sympy/sympy, pytest-dev/pytest, astropy/astropy, psf/requests, sphinx-doc/sphinx, pydata/xarray, pylint-dev/pylint, mwaskom/seaborn, and pallets/flask."
+  - q: "How long does a SWE-bench evaluation take to run?"
+    a: "Individual tasks typically complete in 60-300 seconds. With pre-built Docker images, a 10-task sample usually finishes in 10-20 minutes. Running the full SWE-bench Verified (500 tasks) can take several hours depending on your hardware and the MCP server's response time. Use the -n flag to set sample size for faster iteration."
 ---
 
 # SWE-bench

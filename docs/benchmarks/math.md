@@ -1,4 +1,5 @@
 ---
+title: "MATH: Competition Mathematics Benchmark (AMC, AIME, 12,500 Problems)"
 description: "MATH benchmark for mcpbr - 12,500 competition mathematics problems from AMC, AIME, and other competitions across 7 subjects and 5 difficulty levels."
 benchmark_howto:
   name: "MATH"

@@ -1,4 +1,5 @@
 ---
+title: "TerminalBench: Shell & Terminal Task Evaluation for AI Agents"
 description: "TerminalBench evaluates AI agents on practical terminal and shell tasks including file manipulation, system administration, scripting, and command-line tool usage with validation-command-based evaluation."
 benchmark_howto:
   name: "TerminalBench"

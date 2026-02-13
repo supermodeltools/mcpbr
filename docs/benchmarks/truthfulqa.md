@@ -1,4 +1,5 @@
 ---
+title: "TruthfulQA: Evaluating AI Truthfulness & Misconception Resistance"
 description: "TruthfulQA benchmark for evaluating truthfulness and resistance to common misconceptions across 38 categories."
 benchmark_howto:
   name: "TruthfulQA"

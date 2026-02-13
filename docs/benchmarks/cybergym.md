@@ -1,4 +1,5 @@
 ---
+title: "CyberGym: Cybersecurity Exploit Generation Benchmark for AI Agents"
 description: "CyberGym is a cybersecurity benchmark from UC Berkeley where agents generate Proof-of-Concept exploits for real C/C++ vulnerabilities across four difficulty levels."
 benchmark_howto:
   name: "CyberGym"

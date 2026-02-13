@@ -1,4 +1,5 @@
 ---
+title: "HumanEval: OpenAI Python Programming Benchmark (164 Problems)"
 description: "HumanEval evaluates AI agents on 164 Python programming problems from OpenAI, testing code generation from function signatures and docstrings with unit test verification."
 benchmark_howto:
   name: "HumanEval"

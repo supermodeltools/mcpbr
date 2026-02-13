@@ -1,4 +1,5 @@
 ---
+title: "BigCodeBench: 1,140 Practical Python Tasks Across 139 Libraries"
 description: "BigCodeBench evaluates AI agents on 1,140 practical coding tasks requiring function composition from 139 libraries across 7 domains, testing real-world library usage skills."
 benchmark_howto:
   name: "BigCodeBench"
@@ -11,6 +12,12 @@ faq:
     a: "BigCodeBench covers 7 domains with 139 libraries including data analysis (Pandas, NumPy), machine learning (scikit-learn, TensorFlow), web development (Flask, Django), data visualization (Matplotlib, Seaborn), file processing, networking, and system programming."
   - q: "Can I filter tasks by specific library?"
     a: "Yes. Use filter_tags to select tasks that require specific libraries (e.g., '--filter-tags pandas --filter-tags numpy'). Use filter_category to filter by broader domain categories. Tags require all specified libraries to be present in the task."
+  - q: "What do BigCodeBench Python tasks look like and what format are they in?"
+    a: "Each BigCodeBench task is a JSON object with a task_id, a natural language description of the function to implement, a function signature, required library imports, and test cases. Tasks require composing calls from real Python libraries like Pandas, NumPy, Flask, and Matplotlib to solve practical problems such as data transformation, file parsing, or API handling."
+  - q: "How does BigCodeBench handle XML, CSV, and other file format tasks?"
+    a: "BigCodeBench includes tasks that require parsing, transforming, and generating structured data formats including XML, CSV, and JSON. These tasks test whether the agent can correctly use Python's built-in libraries (csv, xml.etree) and third-party libraries (pandas.read_csv, lxml) to process real-world data formats."
+  - q: "What Pandas and data science tasks are in BigCodeBench?"
+    a: "BigCodeBench includes numerous Pandas tasks covering DataFrame manipulation, groupby operations, merging, pivoting, time series analysis, and data cleaning. You can filter for Pandas-specific tasks using '--filter-tags pandas'. The benchmark also covers NumPy array operations, scikit-learn model training, and Matplotlib visualization tasks."
 ---
 
 # BigCodeBench

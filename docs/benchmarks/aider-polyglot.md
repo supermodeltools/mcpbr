@@ -1,4 +1,5 @@
 ---
+title: "Aider Polyglot: Multi-Language Code Editing Benchmark"
 description: "Aider Polyglot evaluates AI agents on code editing tasks across Python, JavaScript, Go, Rust, and Java, using Exercism exercises with language-specific test suites."
 benchmark_howto:
   name: "Aider Polyglot"

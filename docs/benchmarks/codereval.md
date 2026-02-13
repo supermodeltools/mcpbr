@@ -1,4 +1,5 @@
 ---
+title: "CoderEval: Real-World Code Generation from Open-Source Projects"
 description: "CoderEval evaluates AI agents on pragmatic code generation from real-world open-source projects, testing the ability to implement functions with real project dependencies and context."
 benchmark_howto:
   name: "CoderEval"

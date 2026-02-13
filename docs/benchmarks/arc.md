@@ -1,4 +1,5 @@
 ---
+title: "ARC: AI2 Reasoning Challenge for Grade-School Science Questions"
 description: "ARC (AI2 Reasoning Challenge) benchmark for evaluating grade-school science reasoning with multiple-choice questions."
 benchmark_howto:
   name: "ARC (AI2 Reasoning Challenge)"

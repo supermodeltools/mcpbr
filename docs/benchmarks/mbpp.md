@@ -1,4 +1,5 @@
 ---
+title: "MBPP: Mostly Basic Python Programming Problems Benchmark"
 description: "MBPP benchmark for mcpbr - ~1,000 crowd-sourced Python programming problems designed for entry-level programmers."
 benchmark_howto:
   name: "MBPP"

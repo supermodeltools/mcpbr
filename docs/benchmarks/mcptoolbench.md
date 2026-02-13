@@ -1,4 +1,5 @@
 ---
+title: "MCPToolBench++: MCP Tool Discovery, Selection & Invocation Benchmark"
 description: "MCPToolBench++ evaluates AI agents on MCP tool discovery, selection, invocation, and result interpretation across 45+ categories with accuracy-threshold-based evaluation."
 benchmark_howto:
   name: "MCPToolBench++"

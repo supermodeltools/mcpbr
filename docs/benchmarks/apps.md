@@ -1,4 +1,5 @@
 ---
+title: "APPS: 10,000 Coding Problems from Introductory to Competition Level"
 description: "APPS evaluates AI agents on 10,000 coding problems collected from open-access programming platforms, spanning introductory, interview, and competition difficulty levels."
 benchmark_howto:
   name: "APPS"

@@ -1,4 +1,5 @@
 ---
+title: "ToolBench: Real-World API Tool Selection & Invocation Benchmark"
 description: "ToolBench benchmark for evaluating real-world API tool selection and invocation with proper parameters."
 benchmark_howto:
   name: "ToolBench"

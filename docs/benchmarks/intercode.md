@@ -1,4 +1,5 @@
 ---
+title: "InterCode: Interactive Coding with Bash, SQL & Python Interpreters"
 description: "InterCode evaluates agents on interactive coding tasks requiring multi-turn interaction with Bash, SQL, and Python interpreters through observation-action loops."
 benchmark_howto:
   name: "InterCode"

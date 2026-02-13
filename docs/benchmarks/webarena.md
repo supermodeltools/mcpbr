@@ -1,4 +1,5 @@
 ---
+title: "WebArena: Autonomous Web Agent Evaluation in Realistic Environments"
 description: "WebArena evaluates autonomous web agents in realistic web environments featuring functional e-commerce sites, forums, content management systems, and maps with multi-step interaction tasks."
 benchmark_howto:
   name: "WebArena"

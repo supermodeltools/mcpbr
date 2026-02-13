@@ -1,4 +1,5 @@
 ---
+title: "RepoQA: Long-Context Code Understanding & Function Search"
 description: "RepoQA evaluates long-context code understanding by testing whether agents can find and identify specific functions within large repository codebases."
 benchmark_howto:
   name: "RepoQA"

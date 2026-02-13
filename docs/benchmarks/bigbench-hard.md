@@ -1,4 +1,5 @@
 ---
+title: "BigBench-Hard (BBH): 27 Challenging Reasoning Tasks Beyond Human Baseline"
 description: "BigBench-Hard benchmark for mcpbr - 27 challenging reasoning tasks from BIG-Bench where language models score below average human performance."
 benchmark_howto:
   name: "BigBench-Hard"
@@ -11,6 +12,12 @@ faq:
     a: "Evaluation uses exact match (case-insensitive) on the last non-empty line of the agent's response compared to the target answer. The agent must provide a clear, definitive final answer as the last line of its output."
   - q: "Can I run only specific BBH subtasks?"
     a: "Yes. Use filter_category to select specific subtask names such as 'boolean_expressions', 'date_understanding', or 'logical_deduction_five_objects'. Multiple subtasks can be specified."
+  - q: "How many tasks and examples are in BigBench-Hard?"
+    a: "BigBench-Hard contains 27 distinct subtasks, each with approximately 250 examples, totaling around 6,511 individual evaluation examples. The subtasks span diverse reasoning categories: logical reasoning (boolean expressions, logical deduction), language understanding (snarks, disambiguation), mathematical reasoning (multistep arithmetic), and world knowledge (date understanding, sports understanding)."
+  - q: "Is BigBench-Hard evaluation case-sensitive?"
+    a: "No. BigBench-Hard evaluation in mcpbr uses case-insensitive exact matching. The agent's final answer (last non-empty line of output) is compared against the target answer after normalizing both to lowercase. This means 'True', 'true', and 'TRUE' are all treated as equivalent."
+  - q: "What is the difference between BIG-Bench, BigBench-Hard, and BigCodeBench?"
+    a: "BIG-Bench is a large collaborative benchmark with 200+ tasks measuring diverse language model capabilities. BigBench-Hard (BBH) is a curated subset of 27 BIG-Bench tasks where models previously scored below human performance, focusing on challenging reasoning. BigCodeBench is an entirely separate benchmark focused on practical Python coding tasks across 139 libraries — it is not related to the BIG-Bench project."
 ---
 
 # BigBench-Hard
