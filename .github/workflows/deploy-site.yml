@@ -27,13 +27,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
       - name: Install SchemaFlux
-        run: |
-          curl -sL https://github.com/greynewell/schemaflux/releases/latest/download/schemaflux-linux-amd64 -o schemaflux
-          chmod +x schemaflux
+        run: go install github.com/greynewell/schemaflux/cmd/schemaflux@latest
 
       - name: Build site
-        run: ./schemaflux build
+        run: schemaflux build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
