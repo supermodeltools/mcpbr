@@ -1,4 +1,5 @@
 ---
+category: "Tool Use & Agents"
 title: "ToolBench: Real-World API Tool Selection & Invocation Benchmark"
 description: "ToolBench benchmark for evaluating real-world API tool selection and invocation with proper parameters."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Tool selection accuracy (JSON tool calls) |
 | **Timeout** | 180-300 seconds |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark toolbench -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark toolbench -n 20
+> ```
 
 ## Overview
 
@@ -115,51 +116,51 @@ Expected Tool Calls:
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run ToolBench with default settings
-    mcpbr run -c config.yaml --benchmark toolbench
+```bash
+# Run ToolBench with default settings
+mcpbr run -c config.yaml --benchmark toolbench
 
-    # Run a small sample
-    mcpbr run -c config.yaml --benchmark toolbench -n 20
+# Run a small sample
+mcpbr run -c config.yaml --benchmark toolbench -n 20
 
-    # Filter by difficulty
-    mcpbr run -c config.yaml --benchmark toolbench --filter-difficulty easy
+# Filter by difficulty
+mcpbr run -c config.yaml --benchmark toolbench --filter-difficulty easy
 
-    # Filter by API category
-    mcpbr run -c config.yaml --benchmark toolbench --filter-category weather
+# Filter by API category
+mcpbr run -c config.yaml --benchmark toolbench --filter-category weather
 
-    # Filter by tool tags
-    mcpbr run -c config.yaml --benchmark toolbench --filter-tags "api" --filter-tags "rest"
+# Filter by tool tags
+mcpbr run -c config.yaml --benchmark toolbench --filter-tags "api" --filter-tags "rest"
 
-    # Combine all filters
-    mcpbr run -c config.yaml --benchmark toolbench \
-      --filter-difficulty easy \
-      --filter-category finance \
-      --filter-tags "stock"
+# Combine all filters
+mcpbr run -c config.yaml --benchmark toolbench \
+  --filter-difficulty easy \
+  --filter-category finance \
+  --filter-tags "stock"
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark toolbench -n 50 -v -o results.json
-    ```
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark toolbench -n 50 -v -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "toolbench"
-    sample_size: 10
-    timeout_seconds: 300
+```yaml
+benchmark: "toolbench"
+sample_size: 10
+timeout_seconds: 300
 
-    # Optional: apply filters
-    filter_difficulty:
-      - "easy"
-    filter_category:
-      - "weather"
-      - "finance"
-    filter_tags:
-      - "rest"
-      - "api"
-    ```
+# Optional: apply filters
+filter_difficulty:
+  - "easy"
+filter_category:
+  - "weather"
+  - "finance"
+filter_tags:
+  - "rest"
+  - "api"
+```
 
 ### Filter Options
 

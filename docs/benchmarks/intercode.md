@@ -1,4 +1,5 @@
 ---
+category: "Tool Use & Agents"
 title: "InterCode: Interactive Coding with Bash, SQL & Python Interpreters"
 description: "InterCode evaluates agents on interactive coding tasks requiring multi-turn interaction with Bash, SQL, and Python interpreters through observation-action loops."
 benchmark_howto:
@@ -25,10 +26,10 @@ faq:
 | **Output Type** | Code execution results (stdout) |
 | **Timeout** | 180-300s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark intercode
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark intercode
+> ```
 
 ## Overview
 
@@ -92,77 +93,77 @@ In all cases, the agent must save its final output to `output.txt` in the workin
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run InterCode with default settings
-    mcpbr run -c config.yaml --benchmark intercode
+```bash
+# Run InterCode with default settings
+mcpbr run -c config.yaml --benchmark intercode
 
-    # Run a sample of 20 tasks
-    mcpbr run -c config.yaml --benchmark intercode -n 20
+# Run a sample of 20 tasks
+mcpbr run -c config.yaml --benchmark intercode -n 20
 
-    # Filter by environment type
-    mcpbr run -c config.yaml --benchmark intercode --filter-category bash
+# Filter by environment type
+mcpbr run -c config.yaml --benchmark intercode --filter-category bash
 
-    # Run only SQL tasks
-    mcpbr run -c config.yaml --benchmark intercode --filter-category sql
+# Run only SQL tasks
+mcpbr run -c config.yaml --benchmark intercode --filter-category sql
 
-    # Run only Python tasks
-    mcpbr run -c config.yaml --benchmark intercode --filter-category python
+# Run only Python tasks
+mcpbr run -c config.yaml --benchmark intercode --filter-category python
 
-    # Run specific tasks by ID
-    mcpbr run -c config.yaml --benchmark intercode -t 42 -t 43
+# Run specific tasks by ID
+mcpbr run -c config.yaml --benchmark intercode -t 42 -t 43
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark intercode -n 10 -v -o results.json
-    ```
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark intercode -n 10 -v -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "intercode"
-    sample_size: 10
-    timeout_seconds: 180
+```yaml
+benchmark: "intercode"
+sample_size: 10
+timeout_seconds: 180
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: Filter to specific environment
-    filter_category:
-      - "bash"
-    ```
+# Optional: Filter to specific environment
+filter_category:
+  - "bash"
+```
 
-    Configuration for SQL tasks with longer timeout:
+Configuration for SQL tasks with longer timeout:
 
-    ```yaml
-    benchmark: "intercode"
-    sample_size: 10
-    timeout_seconds: 300
-    max_iterations: 25
+```yaml
+benchmark: "intercode"
+sample_size: 10
+timeout_seconds: 300
+max_iterations: 25
 
-    filter_category:
-      - "sql"
+filter_category:
+  - "sql"
 
-    model: "sonnet"
-    ```
+model: "sonnet"
+```
 
-    Configuration for all environments:
+Configuration for all environments:
 
-    ```yaml
-    benchmark: "intercode"
-    sample_size: 30
-    timeout_seconds: 240
+```yaml
+benchmark: "intercode"
+sample_size: 30
+timeout_seconds: 240
 
-    filter_category:
-      - "bash"
-      - "sql"
-      - "python"
+filter_category:
+  - "bash"
+  - "sql"
+  - "python"
 
-    model: "sonnet"
-    ```
+model: "sonnet"
+```
 
 ## Evaluation Methodology
 

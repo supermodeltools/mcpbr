@@ -1,13 +1,14 @@
-name: Deploy Documentation
+name: Deploy Site
 
 on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - 'src/**'
-      - '.github/workflows/docs.yml'
+      - 'docs/benchmarks/**'
+      - 'templates/**'
+      - 'static/**'
+      - 'schemaflux.yaml'
+      - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 
 permissions:
@@ -26,16 +27,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Install SchemaFlux
+        run: |
+          curl -sL https://github.com/greynewell/schemaflux/releases/latest/download/schemaflux-linux-amd64 -o schemaflux
+          chmod +x schemaflux
 
-      - name: Install dependencies
-        run: pip install -e ".[docs]"
-
-      - name: Build documentation
-        run: mkdocs build --strict
+      - name: Build site
+        run: ./schemaflux build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

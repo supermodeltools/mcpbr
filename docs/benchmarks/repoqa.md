@@ -1,4 +1,5 @@
 ---
+category: "Code Understanding"
 title: "RepoQA: Long-Context Code Understanding & Function Search"
 description: "RepoQA evaluates long-context code understanding by testing whether agents can find and identify specific functions within large repository codebases."
 benchmark_howto:
@@ -25,10 +26,10 @@ faq:
 | **Output Type** | Boolean (function found / not found) |
 | **Timeout** | 180-300s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark repoqa
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark repoqa
+> ```
 
 ## Overview
 
@@ -75,62 +76,62 @@ The agent must search through the repository, identify the function matching thi
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run RepoQA with default settings
-    mcpbr run -c config.yaml --benchmark repoqa
+```bash
+# Run RepoQA with default settings
+mcpbr run -c config.yaml --benchmark repoqa
 
-    # Run a sample of 20 tasks
-    mcpbr run -c config.yaml --benchmark repoqa -n 20
+# Run a sample of 20 tasks
+mcpbr run -c config.yaml --benchmark repoqa -n 20
 
-    # Filter by programming language
-    mcpbr run -c config.yaml --benchmark repoqa --filter-category python
+# Filter by programming language
+mcpbr run -c config.yaml --benchmark repoqa --filter-category python
 
-    # Filter by multiple languages
-    mcpbr run -c config.yaml --benchmark repoqa \
-      --filter-category python --filter-category java
+# Filter by multiple languages
+mcpbr run -c config.yaml --benchmark repoqa \
+  --filter-category python --filter-category java
 
-    # Run with verbose output
-    mcpbr run -c config.yaml --benchmark repoqa -n 10 -v
+# Run with verbose output
+mcpbr run -c config.yaml --benchmark repoqa -n 10 -v
 
-    # Save results to JSON
-    mcpbr run -c config.yaml --benchmark repoqa -n 20 -o results.json
-    ```
+# Save results to JSON
+mcpbr run -c config.yaml --benchmark repoqa -n 20 -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "repoqa"
-    sample_size: 10
-    timeout_seconds: 180
+```yaml
+benchmark: "repoqa"
+sample_size: 10
+timeout_seconds: 180
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: Filter by language
-    filter_category:
-      - "python"
-    ```
+# Optional: Filter by language
+filter_category:
+  - "python"
+```
 
-    Configuration for multi-language evaluation:
+Configuration for multi-language evaluation:
 
-    ```yaml
-    benchmark: "repoqa"
-    sample_size: 20
-    timeout_seconds: 300
-    max_iterations: 20
+```yaml
+benchmark: "repoqa"
+sample_size: 20
+timeout_seconds: 300
+max_iterations: 20
 
-    filter_category:
-      - "python"
-      - "java"
-      - "typescript"
+filter_category:
+  - "python"
+  - "java"
+  - "typescript"
 
-    model: "opus"
-    ```
+model: "opus"
+```
 
 ## Evaluation Methodology
 

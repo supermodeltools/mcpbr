@@ -1,4 +1,5 @@
 ---
+category: "Software Engineering"
 title: "Aider Polyglot: Multi-Language Code Editing Benchmark"
 description: "Aider Polyglot evaluates AI agents on code editing tasks across Python, JavaScript, Go, Rust, and Java, using Exercism exercises with language-specific test suites."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Test pass/fail |
 | **Timeout** | 180-300s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark aider-polyglot
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark aider-polyglot
+> ```
 
 ## Overview
 
@@ -64,60 +65,60 @@ The agent receives the exercise instructions and the source file to edit, and mu
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run Aider Polyglot with default settings
-    mcpbr run -c config.yaml --benchmark aider-polyglot
+```bash
+# Run Aider Polyglot with default settings
+mcpbr run -c config.yaml --benchmark aider-polyglot
 
-    # Run a sample of 20 tasks
-    mcpbr run -c config.yaml --benchmark aider-polyglot -n 20
+# Run a sample of 20 tasks
+mcpbr run -c config.yaml --benchmark aider-polyglot -n 20
 
-    # Run a specific task
-    mcpbr run -c config.yaml --benchmark aider-polyglot -t TASK_ID
+# Run a specific task
+mcpbr run -c config.yaml --benchmark aider-polyglot -t TASK_ID
 
-    # Filter by programming language
-    mcpbr run -c config.yaml --benchmark aider-polyglot --filter-category python
+# Filter by programming language
+mcpbr run -c config.yaml --benchmark aider-polyglot --filter-category python
 
-    # Run only Go exercises
-    mcpbr run -c config.yaml --benchmark aider-polyglot --filter-category go
+# Run only Go exercises
+mcpbr run -c config.yaml --benchmark aider-polyglot --filter-category go
 
-    # Run only Rust exercises
-    mcpbr run -c config.yaml --benchmark aider-polyglot --filter-category rust
-    ```
+# Run only Rust exercises
+mcpbr run -c config.yaml --benchmark aider-polyglot --filter-category rust
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "aider-polyglot"
-    sample_size: 10
-    timeout_seconds: 300
-    ```
+```yaml
+benchmark: "aider-polyglot"
+sample_size: 10
+timeout_seconds: 300
+```
 
-    Configuration filtered by language:
+Configuration filtered by language:
 
-    ```yaml
-    benchmark: "aider-polyglot"
-    sample_size: 15
-    timeout_seconds: 300
+```yaml
+benchmark: "aider-polyglot"
+sample_size: 15
+timeout_seconds: 300
 
-    # Only Python exercises
-    filter_category:
-      - "python"
-    ```
+# Only Python exercises
+filter_category:
+  - "python"
+```
 
-    Multi-language configuration:
+Multi-language configuration:
 
-    ```yaml
-    benchmark: "aider-polyglot"
-    sample_size: 20
-    timeout_seconds: 300
+```yaml
+benchmark: "aider-polyglot"
+sample_size: 20
+timeout_seconds: 300
 
-    filter_category:
-      - "python"
-      - "javascript"
-      - "go"
-    ```
+filter_category:
+  - "python"
+  - "javascript"
+  - "go"
+```
 
 ## Evaluation Methodology
 

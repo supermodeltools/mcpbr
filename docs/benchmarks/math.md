@@ -1,4 +1,5 @@
 ---
+category: "Math & Reasoning"
 title: "MATH: Competition Mathematics Benchmark (AMC, AIME, 12,500 Problems)"
 description: "MATH benchmark for mcpbr - 12,500 competition mathematics problems from AMC, AIME, and other competitions across 7 subjects and 5 difficulty levels."
 benchmark_howto:
@@ -25,10 +26,10 @@ faq:
 | **Output Type** | Mathematical expression (LaTeX or numeric) |
 | **Timeout** | 120-300s |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark math -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark math -n 20
+> ```
 
 ## Overview
 
@@ -91,51 +92,51 @@ Instance IDs are generated in the format `math_{index}` based on the position in
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run MATH with default settings
-    mcpbr run -c config.yaml --benchmark math
+```bash
+# Run MATH with default settings
+mcpbr run -c config.yaml --benchmark math
 
-    # Run a small sample for quick testing
-    mcpbr run -c config.yaml --benchmark math -n 20
+# Run a small sample for quick testing
+mcpbr run -c config.yaml --benchmark math -n 20
 
-    # Filter by subject
-    mcpbr run -c config.yaml --benchmark math --filter-category algebra
+# Filter by subject
+mcpbr run -c config.yaml --benchmark math --filter-category algebra
 
-    # Filter by difficulty level (Level 1 = easiest, Level 5 = hardest)
-    mcpbr run -c config.yaml --benchmark math --level 3
+# Filter by difficulty level (Level 1 = easiest, Level 5 = hardest)
+mcpbr run -c config.yaml --benchmark math --level 3
 
-    # Combine subject and difficulty filters
-    mcpbr run -c config.yaml --benchmark math \
-      --filter-category geometry --level 2 -n 50
+# Combine subject and difficulty filters
+mcpbr run -c config.yaml --benchmark math \
+  --filter-category geometry --level 2 -n 50
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark math -n 100 -v -o results.json -r report.md
-    ```
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark math -n 100 -v -o results.json -r report.md
+```
 
-=== "YAML Configuration"
+#### YAML Configuration
 
-    ```yaml
-    benchmark: "math"
-    sample_size: 10
-    timeout_seconds: 300
-    max_iterations: 20
+```yaml
+benchmark: "math"
+sample_size: 10
+timeout_seconds: 300
+max_iterations: 20
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: Filter by subject
-    filter_category:
-      - "algebra"
-      - "number_theory"
+# Optional: Filter by subject
+filter_category:
+  - "algebra"
+  - "number_theory"
 
-    # Optional: Enable extended thinking for complex problems
-    thinking_budget: 10000
-    ```
+# Optional: Enable extended thinking for complex problems
+thinking_budget: 10000
+```
 
 ## Evaluation Methodology
 
@@ -154,8 +155,8 @@ MATH evaluation extracts and compares mathematical answers with normalization:
 
 5. **Verdict**: The task is marked as **resolved** if the normalized agent answer exactly matches the normalized ground truth answer.
 
-!!! note "Evaluation is offline"
-    Unlike code generation benchmarks, MATH evaluation does not execute code in the Docker container. The comparison is performed entirely on the extracted text answers. The Docker environment is still created (with Python/SymPy available) so the agent can use computation tools during problem solving.
+> **Note:** Evaluation is offline
+> Unlike code generation benchmarks, MATH evaluation does not execute code in the Docker container. The comparison is performed entirely on the extracted text answers. The Docker environment is still created (with Python/SymPy available) so the agent can use computation tools during problem solving.
 
 ## Example Output
 

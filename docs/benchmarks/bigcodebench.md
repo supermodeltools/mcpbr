@@ -1,4 +1,5 @@
 ---
+category: "Software Engineering"
 title: "BigCodeBench: 1,140 Practical Python Tasks Across 139 Libraries"
 description: "BigCodeBench evaluates AI agents on 1,140 practical coding tasks requiring function composition from 139 libraries across 7 domains, testing real-world library usage skills."
 benchmark_howto:
@@ -33,10 +34,10 @@ faq:
 | **Output Type** | Test pass/fail |
 | **Timeout** | 180-300s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark bigcodebench
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark bigcodebench
+> ```
 
 ## Overview
 
@@ -70,62 +71,62 @@ The agent receives the instruction or completion prompt along with the list of r
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run BigCodeBench with default settings
-    mcpbr run -c config.yaml --benchmark bigcodebench
+```bash
+# Run BigCodeBench with default settings
+mcpbr run -c config.yaml --benchmark bigcodebench
 
-    # Run a sample of 20 tasks
-    mcpbr run -c config.yaml --benchmark bigcodebench -n 20
+# Run a sample of 20 tasks
+mcpbr run -c config.yaml --benchmark bigcodebench -n 20
 
-    # Run a specific task
-    mcpbr run -c config.yaml --benchmark bigcodebench -t BigCodeBench/0
+# Run a specific task
+mcpbr run -c config.yaml --benchmark bigcodebench -t BigCodeBench/0
 
-    # Filter by domain
-    mcpbr run -c config.yaml --benchmark bigcodebench --filter-category "data analysis"
+# Filter by domain
+mcpbr run -c config.yaml --benchmark bigcodebench --filter-category "data analysis"
 
-    # Filter by required library
-    mcpbr run -c config.yaml --benchmark bigcodebench --filter-tags pandas
+# Filter by required library
+mcpbr run -c config.yaml --benchmark bigcodebench --filter-tags pandas
 
-    # Filter tasks requiring both pandas and numpy
-    mcpbr run -c config.yaml --benchmark bigcodebench \
-      --filter-tags pandas --filter-tags numpy
-    ```
+# Filter tasks requiring both pandas and numpy
+mcpbr run -c config.yaml --benchmark bigcodebench \
+  --filter-tags pandas --filter-tags numpy
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "bigcodebench"
-    sample_size: 10
-    timeout_seconds: 300
-    ```
+```yaml
+benchmark: "bigcodebench"
+sample_size: 10
+timeout_seconds: 300
+```
 
-    Configuration filtered by domain:
+Configuration filtered by domain:
 
-    ```yaml
-    benchmark: "bigcodebench"
-    sample_size: 20
-    timeout_seconds: 300
+```yaml
+benchmark: "bigcodebench"
+sample_size: 20
+timeout_seconds: 300
 
-    # Filter by domain
-    filter_category:
-      - "data analysis"
-      - "machine learning"
-    ```
+# Filter by domain
+filter_category:
+  - "data analysis"
+  - "machine learning"
+```
 
-    Configuration filtered by libraries:
+Configuration filtered by libraries:
 
-    ```yaml
-    benchmark: "bigcodebench"
-    sample_size: 15
-    timeout_seconds: 300
+```yaml
+benchmark: "bigcodebench"
+sample_size: 15
+timeout_seconds: 300
 
-    # Only tasks requiring these specific libraries
-    filter_tags:
-      - "pandas"
-      - "matplotlib"
-    ```
+# Only tasks requiring these specific libraries
+filter_tags:
+  - "pandas"
+  - "matplotlib"
+```
 
 ## Evaluation Methodology
 

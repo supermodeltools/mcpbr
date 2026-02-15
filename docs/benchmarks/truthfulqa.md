@@ -1,4 +1,5 @@
 ---
+category: "Knowledge & QA"
 title: "TruthfulQA: Evaluating AI Truthfulness & Misconception Resistance"
 description: "TruthfulQA benchmark for evaluating truthfulness and resistance to common misconceptions across 38 categories."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Free-form text |
 | **Timeout** | 60-180 seconds |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark truthfulqa -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark truthfulqa -n 20
+> ```
 
 ## Overview
 
@@ -78,35 +79,35 @@ Incorrect Answers:
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run TruthfulQA with default settings
-    mcpbr run -c config.yaml --benchmark truthfulqa
+```bash
+# Run TruthfulQA with default settings
+mcpbr run -c config.yaml --benchmark truthfulqa
 
-    # Run a small sample
-    mcpbr run -c config.yaml --benchmark truthfulqa -n 20
+# Run a small sample
+mcpbr run -c config.yaml --benchmark truthfulqa -n 20
 
-    # Filter by category
-    mcpbr run -c config.yaml --benchmark truthfulqa --filter-category health
+# Filter by category
+mcpbr run -c config.yaml --benchmark truthfulqa --filter-category health
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark truthfulqa -n 50 -v -o results.json
-    ```
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark truthfulqa -n 50 -v -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "truthfulqa"
-    sample_size: 10
-    timeout_seconds: 120
+```yaml
+benchmark: "truthfulqa"
+sample_size: 10
+timeout_seconds: 120
 
-    # Optional: filter to specific categories
-    filter_category:
-      - "health"
-      - "finance"
-      - "law"
-    ```
+# Optional: filter to specific categories
+filter_category:
+  - "health"
+  - "finance"
+  - "law"
+```
 
 ### Category Filtering
 

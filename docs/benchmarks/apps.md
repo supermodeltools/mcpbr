@@ -1,4 +1,5 @@
 ---
+category: "Software Engineering"
 title: "APPS: 10,000 Coding Problems from Introductory to Competition Level"
 description: "APPS evaluates AI agents on 10,000 coding problems collected from open-access programming platforms, spanning introductory, interview, and competition difficulty levels."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Test pass rate |
 | **Timeout** | 180-300s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark apps
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark apps
+> ```
 
 ## Overview
 
@@ -58,49 +59,49 @@ The agent receives the problem statement with difficulty information and must pr
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run APPS with default settings
-    mcpbr run -c config.yaml --benchmark apps
+```bash
+# Run APPS with default settings
+mcpbr run -c config.yaml --benchmark apps
 
-    # Run a sample of 20 problems
-    mcpbr run -c config.yaml --benchmark apps -n 20
+# Run a sample of 20 problems
+mcpbr run -c config.yaml --benchmark apps -n 20
 
-    # Run a specific task
-    mcpbr run -c config.yaml --benchmark apps -t apps_42
+# Run a specific task
+mcpbr run -c config.yaml --benchmark apps -t apps_42
 
-    # Filter by difficulty level
-    mcpbr run -c config.yaml --benchmark apps --filter-difficulty introductory
+# Filter by difficulty level
+mcpbr run -c config.yaml --benchmark apps --filter-difficulty introductory
 
-    # Filter for interview and competition problems only
-    mcpbr run -c config.yaml --benchmark apps \
-      --filter-difficulty interview --filter-difficulty competition
-    ```
+# Filter for interview and competition problems only
+mcpbr run -c config.yaml --benchmark apps \
+  --filter-difficulty interview --filter-difficulty competition
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "apps"
-    sample_size: 10
-    timeout_seconds: 300
+```yaml
+benchmark: "apps"
+sample_size: 10
+timeout_seconds: 300
 
-    # Optional: Filter by difficulty
-    filter_difficulty:
-      - "introductory"
-    ```
+# Optional: Filter by difficulty
+filter_difficulty:
+  - "introductory"
+```
 
-    Configuration for harder problems:
+Configuration for harder problems:
 
-    ```yaml
-    benchmark: "apps"
-    sample_size: 20
-    timeout_seconds: 300
+```yaml
+benchmark: "apps"
+sample_size: 20
+timeout_seconds: 300
 
-    filter_difficulty:
-      - "interview"
-      - "competition"
-    ```
+filter_difficulty:
+  - "interview"
+  - "competition"
+```
 
 ## Evaluation Methodology
 

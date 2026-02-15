@@ -1,4 +1,5 @@
 ---
+category: "Tool Use & Agents"
 title: "WebArena: Autonomous Web Agent Evaluation in Realistic Environments"
 description: "WebArena evaluates autonomous web agents in realistic web environments featuring functional e-commerce sites, forums, content management systems, and maps with multi-step interaction tasks."
 benchmark_howto:
@@ -25,10 +26,10 @@ faq:
 | **Output Type** | Web interaction results (text extracted from browser state) |
 | **Timeout** | 300-600s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark webarena
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark webarena
+> ```
 
 ## Overview
 
@@ -66,58 +67,58 @@ The agent must navigate the shopping site, search or browse for laptops, identif
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run WebArena with default settings
-    mcpbr run -c config.yaml --benchmark webarena
+```bash
+# Run WebArena with default settings
+mcpbr run -c config.yaml --benchmark webarena
 
-    # Run a sample of 20 tasks
-    mcpbr run -c config.yaml --benchmark webarena -n 20
+# Run a sample of 20 tasks
+mcpbr run -c config.yaml --benchmark webarena -n 20
 
-    # Filter by website type
-    mcpbr run -c config.yaml --benchmark webarena --filter-category shopping
+# Filter by website type
+mcpbr run -c config.yaml --benchmark webarena --filter-category shopping
 
-    # Filter by multiple website types
-    mcpbr run -c config.yaml --benchmark webarena \
-      --filter-category shopping --filter-category forum
+# Filter by multiple website types
+mcpbr run -c config.yaml --benchmark webarena \
+  --filter-category shopping --filter-category forum
 
-    # Run with verbose output
-    mcpbr run -c config.yaml --benchmark webarena -n 10 -v
+# Run with verbose output
+mcpbr run -c config.yaml --benchmark webarena -n 10 -v
 
-    # Save results to JSON
-    mcpbr run -c config.yaml --benchmark webarena -n 20 -o results.json
-    ```
+# Save results to JSON
+mcpbr run -c config.yaml --benchmark webarena -n 20 -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "webarena"
-    sample_size: 10
-    timeout_seconds: 300
+```yaml
+benchmark: "webarena"
+sample_size: 10
+timeout_seconds: 300
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: Filter by website type
-    filter_category:
-      - "shopping"
-      - "forum"
-    ```
+# Optional: Filter by website type
+filter_category:
+  - "shopping"
+  - "forum"
+```
 
-    Configuration with extended timeout for complex multi-site tasks:
+Configuration with extended timeout for complex multi-site tasks:
 
-    ```yaml
-    benchmark: "webarena"
-    sample_size: 5
-    timeout_seconds: 600
-    max_iterations: 30
+```yaml
+benchmark: "webarena"
+sample_size: 5
+timeout_seconds: 600
+max_iterations: 30
 
-    model: "opus"
-    ```
+model: "opus"
+```
 
 ## Evaluation Methodology
 

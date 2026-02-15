@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="{{.Site.Language}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About mcpbr | {{.Site.Name}}</title>
+  <meta name="description" content="About mcpbr: the story behind the open-source MCP server benchmark runner, why it was built, who maintains it, and where the project is headed.">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#6D28D9">
+  <link rel="canonical" href="{{.Site.BaseURL}}/about.html">
+  <link rel="icon" href="/mcpbr-logo.jpg" type="image/jpeg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap">
+
+  <meta property="og:title" content="About mcpbr">
+  <meta property="og:description" content="About mcpbr: the story behind the open-source MCP server benchmark runner.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{.Site.BaseURL}}/about.html">
+  <meta property="og:image" content="{{.Site.BaseURL}}/mcpbr-logo.jpg">
+  <meta property="og:site_name" content="{{.Site.Name}}">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Who created mcpbr?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "mcpbr was created by Grey Newell, a software engineer who identified a critical gap in how MCP servers were being evaluated."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why was mcpbr created?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Existing coding benchmarks measured language model capabilities but not whether MCP servers actually improved agent performance. mcpbr was built to fill that gap with controlled, reproducible experiments."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is mcpbr open source?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, mcpbr is fully open-source under the MIT license. It is available on GitHub and published to PyPI, npm, Homebrew, and Conda."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <style>
+    :root {
+      --color-primary: #6D28D9;
+      --color-primary-light: #F3EEFF;
+      --color-text: #1a1a1a;
+      --color-text-muted: #6b7280;
+      --color-bg: #fafaf9;
+      --color-surface: #ffffff;
+      --color-border: #e5e5e5;
+      --radius: 6px;
+      --font-serif: 'DM Serif Display', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: var(--color-primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .site-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem; max-width: 900px; margin: 0 auto; }
+    .site-brand { font-family: var(--font-serif); font-size: 1.25rem; color: var(--color-text); display: flex; align-items: center; gap: 0.5rem; }
+    .site-brand:hover { text-decoration: none; }
+    .site-brand img { width: 28px; height: 28px; border-radius: 4px; }
+    .site-header nav { display: flex; gap: 1.5rem; font-size: 0.9375rem; }
+    .site-header nav a { color: var(--color-text-muted); }
+    .site-header nav a:hover { color: var(--color-primary); text-decoration: none; }
+    main { max-width: 900px; margin: 0 auto; padding: 0 2rem 3rem; }
+    h1 { font-family: var(--font-serif); font-size: 2rem; line-height: 1.2; margin-bottom: 1rem; }
+    h2 { font-family: var(--font-serif); font-size: 1.375rem; margin: 2rem 0 0.75rem; padding-top: 1rem; border-top: 1px solid var(--color-border); }
+    h3 { font-size: 1.125rem; margin: 1.5rem 0 0.5rem; }
+    p { margin: 0.5rem 0; }
+    ul, ol { margin: 0.5rem 0 0.5rem 1.5rem; }
+    li { margin: 0.25rem 0; }
+    blockquote { border-left: 3px solid var(--color-primary); padding-left: 1rem; margin: 1rem 0; color: var(--color-text-muted); font-style: italic; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--color-border); }
+    th { font-weight: 600; background: var(--color-primary-light); }
+    .footer-links { text-align: center; font-size: 0.8125rem; color: var(--color-text-muted); margin: 2rem 0 0.5rem; }
+    .footer-links a { color: var(--color-text-muted); }
+    .created-by { text-align: center; font-size: 0.75rem; color: var(--color-text-muted); }
+    @media (max-width: 640px) { .site-header { padding: 0.75rem 1rem; } main { padding: 0 1rem 2rem; } h1 { font-size: 1.5rem; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-brand" href="/"><img src="/mcpbr-logo.jpg" alt="" width="28" height="28"> mcpbr</a>
+    <nav>
+      <a href="/installation.html">Install</a>
+      <a href="/category/index.html">Benchmarks</a>
+      <a href="/about.html">About</a>
+      <a href="https://github.com/greynewell/mcpbr">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>About mcpbr</h1>
+
+    <p>mcpbr (Model Context Protocol Benchmark Runner) is an open-source framework for evaluating whether MCP servers actually improve AI agent performance. It provides controlled, reproducible benchmarking across 25+ benchmarks so developers can stop guessing and start measuring.</p>
+
+    <h2>The Origin Story</h2>
+    <p>mcpbr was created by <a href="https://greynewell.com">Grey Newell</a> after identifying a critical gap in the MCP ecosystem: <strong>no tool existed to measure whether an MCP server actually made an AI agent better at its job.</strong></p>
+    <p>Existing coding benchmarks like SWE-bench measured raw language model capabilities. MCP server developers relied on anecdotal evidence and demo videos. There was no way to answer the fundamental question: <em>does adding this MCP server to an agent improve its performance on real tasks?</em></p>
+    <p>mcpbr was built to answer that question with hard data.</p>
+    <blockquote><p>"No available tool allowed users to easily measure the performance improvement of introducing their MCP server to an agent."</p><p>&mdash; <a href="https://greynewell.com/blog/why-i-built-mcpbr/">Grey Newell, "Why I Built mcpbr"</a></p></blockquote>
+
+    <h2>The Problem mcpbr Solves</h2>
+    <p>Before mcpbr, MCP server evaluation looked like this:</p>
+    <ul>
+      <li><strong>Manual testing</strong> &mdash; run a few prompts, eyeball the results, declare it "works"</li>
+      <li><strong>Demo-driven development</strong> &mdash; show a polished demo, hope it generalizes</li>
+      <li><strong>Vibes-based benchmarking</strong> &mdash; "it feels faster" with no quantitative evidence</li>
+    </ul>
+    <p>mcpbr solves all of these by running <strong>controlled experiments</strong>: same model, same tasks, same Docker environment &mdash; the only variable is the MCP server.</p>
+
+    <h2>A Key Insight: Test Like APIs, Not Plugins</h2>
+    <blockquote><p><strong>MCP servers should be tested like APIs, not like plugins.</strong></p></blockquote>
+    <p>Plugins just need to load and not crash. APIs have defined contracts &mdash; expected inputs, outputs, error handling, and performance characteristics. MCP servers sit squarely in API territory.</p>
+
+    <h2>Project Vision</h2>
+    <h3>Current Capabilities</h3>
+    <ul>
+      <li><strong>25+ benchmarks</strong> across software engineering, code generation, math reasoning, security, tool use, and more</li>
+      <li><strong>Multi-provider support</strong> for Anthropic, OpenAI, Google Gemini, and Alibaba Qwen</li>
+      <li><strong>Multiple agent harnesses</strong> including Claude Code, OpenAI Codex, OpenCode, and Gemini</li>
+      <li><strong>Infrastructure flexibility</strong> with local Docker and Azure VM execution</li>
+      <li><strong>Regression detection</strong> with CI/CD integration, threshold-based alerts, and multi-channel notifications</li>
+      <li><strong>Comprehensive analytics</strong> including statistical significance testing, trend analysis, and leaderboards</li>
+    </ul>
+
+    <h2>Links</h2>
+    <table>
+      <tr><th>Resource</th><th>Link</th></tr>
+      <tr><td>GitHub</td><td><a href="https://github.com/greynewell/mcpbr">github.com/greynewell/mcpbr</a></td></tr>
+      <tr><td>PyPI</td><td><a href="https://pypi.org/project/mcpbr/">pypi.org/project/mcpbr</a></td></tr>
+      <tr><td>npm</td><td><a href="https://www.npmjs.com/package/mcpbr-cli">npmjs.com/package/mcpbr-cli</a></td></tr>
+      <tr><td>Blog Post</td><td><a href="https://greynewell.com/blog/why-i-built-mcpbr/">Why I Built mcpbr</a></td></tr>
+      <tr><td>Creator</td><td><a href="https://greynewell.com">greynewell.com</a></td></tr>
+      <tr><td>License</td><td><a href="https://github.com/greynewell/mcpbr/blob/main/LICENSE">MIT</a></td></tr>
+    </table>
+
+    <p class="footer-links">
+      <a href="/sitemap.xml">Sitemap</a> &middot;
+      <a href="/llms.txt">llms.txt</a>
+    </p>
+    <p class="created-by">Created by <a href="{{.Site.AuthorURL}}">{{.Site.Author}}</a></p>
+  </main>
+</body>
+</html>

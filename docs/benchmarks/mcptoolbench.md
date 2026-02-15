@@ -1,4 +1,5 @@
 ---
+category: "Tool Use & Agents"
 title: "MCPToolBench++: MCP Tool Discovery, Selection & Invocation Benchmark"
 description: "MCPToolBench++ evaluates AI agents on MCP tool discovery, selection, invocation, and result interpretation across 45+ categories with accuracy-threshold-based evaluation."
 benchmark_howto:
@@ -33,10 +34,10 @@ faq:
 | **Pre-built Images** | No |
 | **Difficulty Levels** | easy (single-step), hard/medium (multi-step) |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark mcptoolbench -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark mcptoolbench -n 20
+> ```
 
 ## Overview
 
@@ -131,51 +132,51 @@ Expected Tool Calls:
 
 ### Basic Configuration
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run MCPToolBench++ with default settings
-    mcpbr run -c config.yaml --benchmark mcptoolbench
+```bash
+# Run MCPToolBench++ with default settings
+mcpbr run -c config.yaml --benchmark mcptoolbench
 
-    # Run a small sample
-    mcpbr run -c config.yaml --benchmark mcptoolbench -n 20
+# Run a small sample
+mcpbr run -c config.yaml --benchmark mcptoolbench -n 20
 
-    # Filter by difficulty (single vs multi-step)
-    mcpbr run -c config.yaml --benchmark mcptoolbench --filter-difficulty easy
-    mcpbr run -c config.yaml --benchmark mcptoolbench --filter-difficulty hard
+# Filter by difficulty (single vs multi-step)
+mcpbr run -c config.yaml --benchmark mcptoolbench --filter-difficulty easy
+mcpbr run -c config.yaml --benchmark mcptoolbench --filter-difficulty hard
 
-    # Filter by category
-    mcpbr run -c config.yaml --benchmark mcptoolbench --filter-category browser
-    mcpbr run -c config.yaml --benchmark mcptoolbench --filter-category finance
+# Filter by category
+mcpbr run -c config.yaml --benchmark mcptoolbench --filter-category browser
+mcpbr run -c config.yaml --benchmark mcptoolbench --filter-category finance
 
-    # Combine filters
-    mcpbr run -c config.yaml --benchmark mcptoolbench \
-      --filter-difficulty easy --filter-category browser
+# Combine filters
+mcpbr run -c config.yaml --benchmark mcptoolbench \
+  --filter-difficulty easy --filter-category browser
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark mcptoolbench -n 50 -v -o results.json
-    ```
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark mcptoolbench -n 50 -v -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "mcptoolbench"
-    sample_size: 10
-    timeout_seconds: 300
+```yaml
+benchmark: "mcptoolbench"
+sample_size: 10
+timeout_seconds: 300
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: filter by difficulty and category
-    filter_difficulty:
-      - "easy"    # single-step tasks
-    filter_category:
-      - "browser"
-      - "finance"
-    ```
+# Optional: filter by difficulty and category
+filter_difficulty:
+  - "easy"    # single-step tasks
+filter_category:
+  - "browser"
+  - "finance"
+```
 
 ### Advanced Options
 
@@ -316,8 +317,8 @@ The evaluation attempts to extract tool calls from the agent's response in two w
 | **Multi-step (hard)** | 30-50% | Adequate -- struggles with tool sequencing or result passing |
 | **Multi-step (hard)** | Below 30% | Needs investigation -- check structured output format and tool schema access |
 
-!!! note "Metric Independence"
-    A high tool selection accuracy with low parameter accuracy indicates the agent understands which tools to use but struggles with exact parameter formatting. Conversely, low tool selection with high parameter accuracy (for selected tools) suggests the agent is good at invocation but poor at choosing the right tool. Track these metrics independently for targeted improvement.
+> **Note:** Metric Independence
+> A high tool selection accuracy with low parameter accuracy indicates the agent understands which tools to use but struggles with exact parameter formatting. Conversely, low tool selection with high parameter accuracy (for selected tools) suggests the agent is good at invocation but poor at choosing the right tool. Track these metrics independently for targeted improvement.
 
 ### Common Failure Patterns
 
@@ -438,8 +439,8 @@ for cat in cats:
 | **Typical Timeout** | 180-300s | 120-300s | 180-600s | 120-300s | 120-300s |
 | **Best For** | MCP server evaluation | General API tool testing | Overall assistant quality | Broad agent capability | Web automation |
 
-!!! tip "When to Use MCPToolBench++"
-    Use MCPToolBench++ when you need to evaluate an MCP server's **tool use pipeline** specifically. It is the only benchmark designed around the MCP tool lifecycle (discovery, selection, invocation, interpretation). For general assistant capability, use GAIA. For code-focused evaluation, use SWE-bench or HumanEval. For real-world API testing, use ToolBench.
+> **When to Use MCPToolBench++**
+> Use MCPToolBench++ when you need to evaluate an MCP server's **tool use pipeline** specifically. It is the only benchmark designed around the MCP tool lifecycle (discovery, selection, invocation, interpretation). For general assistant capability, use GAIA. For code-focused evaluation, use SWE-bench or HumanEval. For real-world API testing, use ToolBench.
 
 ## References
 

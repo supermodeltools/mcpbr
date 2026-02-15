@@ -1,4 +1,5 @@
 ---
+category: "Knowledge & QA"
 title: "ARC: AI2 Reasoning Challenge for Grade-School Science Questions"
 description: "ARC (AI2 Reasoning Challenge) benchmark for evaluating grade-school science reasoning with multiple-choice questions."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Single letter (A-E) |
 | **Timeout** | 60-180 seconds |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark arc -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark arc -n 20
+> ```
 
 ## Overview
 
@@ -84,36 +85,36 @@ Correct Answer: B
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run ARC-Challenge (default)
-    mcpbr run -c config.yaml --benchmark arc
+```bash
+# Run ARC-Challenge (default)
+mcpbr run -c config.yaml --benchmark arc
 
-    # Run a small sample
-    mcpbr run -c config.yaml --benchmark arc -n 20
+# Run a small sample
+mcpbr run -c config.yaml --benchmark arc -n 20
 
-    # Run ARC-Easy subset
-    mcpbr run -c config.yaml --benchmark arc --filter-difficulty easy
+# Run ARC-Easy subset
+mcpbr run -c config.yaml --benchmark arc --filter-difficulty easy
 
-    # Explicitly run ARC-Challenge
-    mcpbr run -c config.yaml --benchmark arc --filter-difficulty challenge
+# Explicitly run ARC-Challenge
+mcpbr run -c config.yaml --benchmark arc --filter-difficulty challenge
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark arc -n 50 -v -o results.json
-    ```
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark arc -n 50 -v -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "arc"
-    sample_size: 10
-    timeout_seconds: 120
+```yaml
+benchmark: "arc"
+sample_size: 10
+timeout_seconds: 120
 
-    # Optional: select the Easy subset instead of Challenge
-    filter_difficulty:
-      - "easy"
-    ```
+# Optional: select the Easy subset instead of Challenge
+filter_difficulty:
+  - "easy"
+```
 
 ### Difficulty Filtering
 

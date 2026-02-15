@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="{{.Site.Language}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Site.Name}} — Benchmark Runner for MCP Servers</title>
+  <meta name="description" content="{{.Site.Description}}">
+  <meta name="author" content="{{.Site.Author}}">
+  <link rel="canonical" href="{{.Site.BaseURL}}/">
+  <meta name="theme-color" content="#6D28D9">
+  <link rel="icon" href="/mcpbr-logo.jpg" type="image/jpeg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="{{.OG.Title}}">
+  <meta property="og:description" content="{{.OG.Description}}">
+  <meta property="og:type" content="{{.OG.Type}}">
+  <meta property="og:url" content="{{.OG.URL}}">
+  <meta property="og:image" content="{{.Site.BaseURL}}/mcpbr-logo.jpg">
+  <meta property="og:site_name" content="{{.Site.Name}}">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{.OG.Title}}">
+  <meta name="twitter:description" content="{{.OG.Description}}">
+  <meta name="twitter:image" content="{{.Site.BaseURL}}/mcpbr-logo.jpg">
+
+  {{- if .JsonLD}}
+  {{.JsonLD}}
+  {{- end}}
+
+  <style>
+    :root {
+      --color-primary: #6D28D9;
+      --color-primary-light: #F3EEFF;
+      --color-primary-dark: #5521B5;
+      --color-text: #1a1a1a;
+      --color-text-muted: #6b7280;
+      --color-bg: #fafaf9;
+      --color-surface: #ffffff;
+      --color-border: #e5e5e5;
+      --radius: 6px;
+      --font-serif: 'DM Serif Display', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      color: var(--color-text);
+      background: var(--color-bg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--color-primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .skip-link {
+      position: absolute; left: -9999px; top: auto;
+      background: var(--color-primary); color: #fff;
+      padding: 0.5rem 1rem; z-index: 100;
+    }
+    .skip-link:focus { left: 1rem; top: 1rem; }
+
+    .site-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2rem; max-width: 1100px; margin: 0 auto;
+    }
+    .site-brand {
+      font-family: var(--font-serif); font-size: 1.25rem;
+      color: var(--color-text); display: flex; align-items: center; gap: 0.5rem;
+    }
+    .site-brand:hover { text-decoration: none; }
+    .site-brand img { width: 28px; height: 28px; border-radius: 4px; }
+    .site-header nav { display: flex; gap: 1.5rem; font-size: 0.9375rem; }
+    .site-header nav a { color: var(--color-text-muted); }
+    .site-header nav a:hover { color: var(--color-primary); text-decoration: none; }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 0 2rem 3rem; }
+
+    .hero {
+      text-align: center; padding: 3rem 0 2.5rem;
+    }
+    .hero h1 {
+      font-family: var(--font-serif); font-size: 2.5rem;
+      line-height: 1.2; margin-bottom: 1rem;
+    }
+    .hero-tagline {
+      font-size: 1.125rem; color: var(--color-text-muted);
+      max-width: 600px; margin: 0 auto 1.5rem;
+    }
+
+    .hero-install {
+      background: #1a1a1a; color: #e5e5e5;
+      font-family: var(--font-mono); font-size: 0.875rem;
+      padding: 0.75rem 1.25rem; border-radius: var(--radius);
+      display: inline-block; margin-bottom: 1.5rem;
+      user-select: all; cursor: pointer;
+    }
+    .hero-install .prompt { color: var(--color-primary); opacity: 0.7; }
+
+    .hero-cta { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .hero-cta a {
+      display: inline-block; font-weight: 600; font-size: 0.9375rem;
+      padding: 0.6rem 1.25rem; border-radius: var(--radius); text-decoration: none;
+    }
+    .hero-cta a:first-child { background: var(--color-primary); color: #fff; }
+    .hero-cta a:first-child:hover { background: var(--color-primary-dark); }
+    .hero-cta a:last-child {
+      border: 1px solid var(--color-primary); color: var(--color-primary);
+    }
+
+    .results-section { margin: 2rem 0 3rem; }
+    .results-section h2 { font-family: var(--font-serif); font-size: 1.5rem; margin-bottom: 1rem; text-align: center; }
+
+    .results-box {
+      background: #1a1a1a; color: #e5e5e5;
+      font-family: var(--font-mono); font-size: 0.8125rem;
+      padding: 1.25rem 1.5rem; border-radius: var(--radius);
+      max-width: 480px; margin: 0 auto;
+      white-space: pre; overflow-x: auto; line-height: 1.5;
+    }
+
+    .section-heading {
+      font-family: var(--font-serif); font-size: 1.5rem;
+      margin: 2.5rem 0 1rem;
+    }
+
+    .category-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem; list-style: none; margin: 1rem 0;
+    }
+    .category-card {
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius); padding: 1.25rem;
+      transition: border-color 0.15s;
+    }
+    .category-card:hover { border-color: var(--color-primary); }
+    .category-card a {
+      font-weight: 600; font-size: 1.0625rem; color: var(--color-text);
+      display: block; margin-bottom: 0.25rem;
+    }
+    .category-card a:hover { color: var(--color-primary); text-decoration: none; }
+    .category-card .count { font-size: 0.8125rem; color: var(--color-text-muted); }
+
+    .docs-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.75rem; list-style: none; margin: 1rem 0 2rem;
+    }
+    .docs-card {
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius); padding: 1rem;
+    }
+    .docs-card a { font-weight: 500; color: var(--color-text); }
+    .docs-card a:hover { color: var(--color-primary); text-decoration: none; }
+    .docs-card p { font-size: 0.8125rem; color: var(--color-text-muted); margin-top: 0.25rem; }
+
+    .cta {
+      margin: 3rem 0 2rem; padding: 2rem;
+      background: var(--color-primary-light); border-radius: var(--radius);
+      text-align: center;
+    }
+    .cta-title { font-family: var(--font-serif); font-size: 1.25rem; margin-bottom: 0.5rem; }
+    .cta-body { color: var(--color-text-muted); margin-bottom: 1rem; }
+    .cta a {
+      display: inline-block; font-weight: 600; font-size: 0.9375rem;
+      padding: 0.6rem 1.25rem; border-radius: var(--radius);
+      text-decoration: none; margin: 0 0.25rem;
+    }
+    .cta a:first-of-type { background: var(--color-primary); color: #fff; }
+    .cta a:last-of-type { border: 1px solid var(--color-primary); color: var(--color-primary); }
+
+    .footer-links {
+      text-align: center; font-size: 0.8125rem;
+      color: var(--color-text-muted); margin: 1.5rem 0 0.5rem;
+    }
+    .footer-links a { color: var(--color-text-muted); }
+    .created-by {
+      text-align: center; font-size: 0.75rem; color: var(--color-text-muted);
+      margin-bottom: 0.5rem;
+    }
+    .created-by a { color: var(--color-text-muted); }
+
+    .footer-gh {
+      text-align: center; margin: 1rem 0;
+    }
+    .footer-gh a {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-size: 0.8125rem; color: var(--color-text-muted);
+    }
+    .footer-gh svg { width: 16px; height: 16px; fill: currentColor; }
+
+    @media (max-width: 640px) {
+      .site-header { padding: 0.75rem 1rem; }
+      main { padding: 0 1rem 2rem; }
+      .hero h1 { font-size: 1.75rem; }
+      .hero-tagline { font-size: 1rem; }
+      .category-grid { grid-template-columns: 1fr; }
+      .docs-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="site-brand" href="/">
+      <img src="/mcpbr-logo.jpg" alt="" width="28" height="28">
+      mcpbr
+    </a>
+    <nav>
+      <a href="/installation.html">Install</a>
+      <a href="/category/index.html">Benchmarks</a>
+      <a href="/about.html">About</a>
+      <a href="https://github.com/greynewell/mcpbr">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <h1>Benchmark Your MCP Server</h1>
+      <p class="hero-tagline">Stop guessing if your MCP server actually helps. Get hard numbers comparing tool-assisted vs. baseline agent performance on real tasks.</p>
+      <div class="hero-install"><span class="prompt">$</span> pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v</div>
+      <div class="hero-cta">
+        <a href="/installation.html">Get Started</a>
+        <a href="/category/index.html">Browse {{len .Entities}} Benchmarks</a>
+      </div>
+    </section>
+
+    <section class="results-section">
+      <h2>What You Get</h2>
+      <div class="results-box">Evaluation Results
+
+                 Summary
++-----------------+-----------+----------+
+| Metric          | MCP Agent | Baseline |
++-----------------+-----------+----------+
+| Resolved        | 8/25      | 5/25     |
+| Resolution Rate | 32.0%     | 20.0%    |
++-----------------+-----------+----------+
+
+Improvement: +60.0%</div>
+    </section>
+
+    <h2 class="section-heading">Benchmark Categories</h2>
+    <ul class="category-grid">
+      {{- range .Taxonomies}}
+      {{- range .Entries}}
+      <li class="category-card">
+        <a href="/category/{{.Slug}}.html">{{.Name}}</a>
+        <span class="count">{{len .Entities}} benchmark{{if ne (len .Entities) 1}}s{{end}}</span>
+      </li>
+      {{- end}}
+      {{- end}}
+    </ul>
+
+    <h2 class="section-heading">Documentation</h2>
+    <ul class="docs-grid">
+      <li class="docs-card">
+        <a href="/installation.html">Installation</a>
+        <p>Prerequisites, install methods, and setup</p>
+      </li>
+      <li class="docs-card">
+        <a href="/configuration.html">Configuration</a>
+        <p>YAML config reference and examples</p>
+      </li>
+      <li class="docs-card">
+        <a href="/cli.html">CLI Reference</a>
+        <p>All commands and options</p>
+      </li>
+      <li class="docs-card">
+        <a href="/about.html">About</a>
+        <p>Origin story, philosophy, and vision</p>
+      </li>
+    </ul>
+
+    <div class="cta">
+      <div class="cta-title">{{.CTA.Heading}}</div>
+      <p class="cta-body">{{.CTA.Description}}</p>
+      <a href="{{.CTA.ButtonURL}}">{{.CTA.ButtonText}}</a>
+      <a href="{{.CTA.SecondaryURL}}">{{.CTA.SecondaryText}}</a>
+    </div>
+
+    <div class="footer-gh">
+      <a href="{{.Site.RepoURL}}">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+    <p class="footer-links">
+      <a href="/sitemap.xml">Sitemap</a> &middot;
+      <a href="/llms.txt">llms.txt</a>
+    </p>
+    <p class="created-by">Created by <a href="{{.Site.AuthorURL}}">{{.Site.Author}}</a></p>
+  </main>
+</body>
+</html>

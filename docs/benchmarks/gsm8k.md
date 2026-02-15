@@ -1,4 +1,5 @@
 ---
+category: "Math & Reasoning"
 title: "GSM8K: Grade-School Math Reasoning Benchmark (1,319 Problems)"
 description: "GSM8K evaluates mathematical reasoning on 1,319 grade-school math word problems, testing chain-of-thought reasoning and numeric answer extraction with tolerance-based comparison."
 benchmark_howto:
@@ -33,10 +34,10 @@ faq:
 | **Pre-built Images** | No |
 | **Difficulty Levels** | None (uniform -- all grade-school level) |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark gsm8k -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark gsm8k -n 20
+> ```
 
 ## Overview
 
@@ -103,39 +104,39 @@ GSM8K problems share common characteristics:
 
 ### Basic Configuration
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run GSM8K with default settings
-    mcpbr run -c config.yaml --benchmark gsm8k
+```bash
+# Run GSM8K with default settings
+mcpbr run -c config.yaml --benchmark gsm8k
 
-    # Run a small sample for quick testing
-    mcpbr run -c config.yaml --benchmark gsm8k -n 20
+# Run a small sample for quick testing
+mcpbr run -c config.yaml --benchmark gsm8k -n 20
 
-    # Run specific tasks by index
-    mcpbr run -c config.yaml --benchmark gsm8k -t 0 -t 1 -t 2
+# Run specific tasks by index
+mcpbr run -c config.yaml --benchmark gsm8k -t 0 -t 1 -t 2
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark gsm8k -n 50 -v -o results.json
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark gsm8k -n 50 -v -o results.json
 
-    # Save both JSON results and Markdown report
-    mcpbr run -c config.yaml --benchmark gsm8k -n 100 -o results.json -r report.md
-    ```
+# Save both JSON results and Markdown report
+mcpbr run -c config.yaml --benchmark gsm8k -n 100 -o results.json -r report.md
+```
 
-=== "YAML Configuration"
+#### YAML Configuration
 
-    ```yaml
-    benchmark: "gsm8k"
-    sample_size: 10
-    timeout_seconds: 180
-    max_iterations: 15
+```yaml
+benchmark: "gsm8k"
+sample_size: 10
+timeout_seconds: 180
+max_iterations: 15
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
-    ```
+model: "sonnet"
+```
 
 ### Advanced Options
 
@@ -227,8 +228,8 @@ GSM8K evaluation focuses on extracting and comparing numeric answers rather than
 | **60-70%** | Below expected -- check prompt, answer format, or model capability |
 | **Below 60%** | Needs investigation -- likely configuration issues, answer extraction problems, or model limitations |
 
-!!! note "Context: Industry Benchmarks"
-    Most modern language models achieve 70-95% on GSM8K. Top models (GPT-4, Claude, etc.) score 90%+ without MCP assistance. An effective MCP server integration should maintain these scores. Significant drops suggest the MCP server interaction is interfering with the model's reasoning rather than helping.
+> **Note:** Context: Industry Benchmarks
+> Most modern language models achieve 70-95% on GSM8K. Top models (GPT-4, Claude, etc.) score 90%+ without MCP assistance. An effective MCP server integration should maintain these scores. Significant drops suggest the MCP server interaction is interfering with the model's reasoning rather than helping.
 
 ### Common Failure Patterns
 
@@ -336,8 +337,8 @@ GSM8K evaluation focuses on extracting and comparing numeric answers rather than
 | **Expected Scores** | 70-95% | 30-70% | Varies | 85-95% |
 | **Best For** | Basic math reasoning baseline | Advanced math evaluation | Broad reasoning assessment | Code generation baseline |
 
-!!! tip "When to Use GSM8K"
-    Use GSM8K when you need a **quick, reliable measure of mathematical reasoning capability**. It is the standard first benchmark for evaluating chain-of-thought reasoning. For more challenging math evaluation, follow up with the MATH benchmark. For non-math reasoning, consider BigBench-Hard.
+> **When to Use GSM8K**
+> Use GSM8K when you need a **quick, reliable measure of mathematical reasoning capability**. It is the standard first benchmark for evaluating chain-of-thought reasoning. For more challenging math evaluation, follow up with the MATH benchmark. For non-math reasoning, consider BigBench-Hard.
 
 ## References
 

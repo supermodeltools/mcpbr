@@ -1,4 +1,5 @@
 ---
+category: "Knowledge & QA"
 title: "HellaSwag: Commonsense Reasoning Through Sentence Completion"
 description: "HellaSwag benchmark for evaluating commonsense reasoning through adversarially filtered sentence completion."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Single digit (0-3) |
 | **Timeout** | 60-180 seconds |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark hellaswag -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark hellaswag -n 20
+> ```
 
 ## Overview
 
@@ -74,34 +75,34 @@ Correct Answer: 1
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run HellaSwag with default settings
-    mcpbr run -c config.yaml --benchmark hellaswag
+```bash
+# Run HellaSwag with default settings
+mcpbr run -c config.yaml --benchmark hellaswag
 
-    # Run a small sample
-    mcpbr run -c config.yaml --benchmark hellaswag -n 20
+# Run a small sample
+mcpbr run -c config.yaml --benchmark hellaswag -n 20
 
-    # Filter by activity type
-    mcpbr run -c config.yaml --benchmark hellaswag --filter-category "baking cookies"
+# Filter by activity type
+mcpbr run -c config.yaml --benchmark hellaswag --filter-category "baking cookies"
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark hellaswag -n 100 -v -o results.json
-    ```
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark hellaswag -n 100 -v -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "hellaswag"
-    sample_size: 10
-    timeout_seconds: 120
+```yaml
+benchmark: "hellaswag"
+sample_size: 10
+timeout_seconds: 120
 
-    # Optional: filter to specific activity types
-    filter_category:
-      - "baking cookies"
-      - "playing basketball"
-    ```
+# Optional: filter to specific activity types
+filter_category:
+  - "baking cookies"
+  - "playing basketball"
+```
 
 ### Activity Label Filtering
 

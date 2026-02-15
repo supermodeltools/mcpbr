@@ -1,4 +1,5 @@
 ---
+category: "Code Generation"
 title: "MBPP: Mostly Basic Python Programming Problems Benchmark"
 description: "MBPP benchmark for mcpbr - ~1,000 crowd-sourced Python programming problems designed for entry-level programmers."
 benchmark_howto:
@@ -25,10 +26,10 @@ faq:
 | **Output Type** | Test pass/fail |
 | **Timeout** | 60-180s |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark mbpp -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark mbpp -n 20
+> ```
 
 ## Overview
 
@@ -65,39 +66,39 @@ Instance IDs are generated in the format `mbpp_{task_id}` (e.g., `mbpp_601`). Th
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run MBPP with default settings
-    mcpbr run -c config.yaml --benchmark mbpp
+```bash
+# Run MBPP with default settings
+mcpbr run -c config.yaml --benchmark mbpp
 
-    # Run a small sample for quick testing
-    mcpbr run -c config.yaml --benchmark mbpp -n 20
+# Run a small sample for quick testing
+mcpbr run -c config.yaml --benchmark mbpp -n 20
 
-    # Run specific tasks by ID
-    mcpbr run -c config.yaml --benchmark mbpp -t mbpp_601 -t mbpp_602
+# Run specific tasks by ID
+mcpbr run -c config.yaml --benchmark mbpp -t mbpp_601 -t mbpp_602
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark mbpp -n 50 -v -o results.json
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark mbpp -n 50 -v -o results.json
 
-    # Run MCP-only evaluation (skip baseline)
-    mcpbr run -c config.yaml --benchmark mbpp -n 20 -M
-    ```
+# Run MCP-only evaluation (skip baseline)
+mcpbr run -c config.yaml --benchmark mbpp -n 20 -M
+```
 
-=== "YAML Configuration"
+#### YAML Configuration
 
-    ```yaml
-    benchmark: "mbpp"
-    sample_size: 10
-    timeout_seconds: 180
-    max_iterations: 15
+```yaml
+benchmark: "mbpp"
+sample_size: 10
+timeout_seconds: 180
+max_iterations: 15
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
-    ```
+model: "sonnet"
+```
 
 ## Evaluation Methodology
 

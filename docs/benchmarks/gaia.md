@@ -1,4 +1,5 @@
 ---
+category: "Knowledge & QA"
 title: "GAIA: General AI Assistant Benchmark for Reasoning & Tool Use"
 description: "GAIA evaluates general AI assistant capabilities including multi-step reasoning, web browsing, tool use, and multi-modality on real-world questions with unambiguous answers."
 benchmark_howto:
@@ -33,10 +34,10 @@ faq:
 | **Pre-built Images** | No |
 | **Difficulty Levels** | 1, 2, 3 (increasing complexity) |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark gaia -n 10
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark gaia -n 10
+> ```
 
 ## Overview
 
@@ -125,46 +126,46 @@ Expected Answer: 45200
 
 ### Basic Configuration
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run GAIA with default settings
-    mcpbr run -c config.yaml --benchmark gaia
+```bash
+# Run GAIA with default settings
+mcpbr run -c config.yaml --benchmark gaia
 
-    # Run a small sample
-    mcpbr run -c config.yaml --benchmark gaia -n 10
+# Run a small sample
+mcpbr run -c config.yaml --benchmark gaia -n 10
 
-    # Filter by difficulty level using the level parameter
-    mcpbr run -c config.yaml --benchmark gaia --level 1
+# Filter by difficulty level using the level parameter
+mcpbr run -c config.yaml --benchmark gaia --level 1
 
-    # Filter by difficulty using filter-difficulty
-    mcpbr run -c config.yaml --benchmark gaia --filter-difficulty 1
+# Filter by difficulty using filter-difficulty
+mcpbr run -c config.yaml --benchmark gaia --filter-difficulty 1
 
-    # Run only Level 3 (hardest) questions
-    mcpbr run -c config.yaml --benchmark gaia --filter-difficulty 3
+# Run only Level 3 (hardest) questions
+mcpbr run -c config.yaml --benchmark gaia --filter-difficulty 3
 
-    # Run with extended timeout for complex tasks
-    mcpbr run -c config.yaml --benchmark gaia -n 10 -v -o results.json
-    ```
+# Run with extended timeout for complex tasks
+mcpbr run -c config.yaml --benchmark gaia -n 10 -v -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "gaia"
-    sample_size: 10
-    timeout_seconds: 300
+```yaml
+benchmark: "gaia"
+sample_size: 10
+timeout_seconds: 300
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: filter by difficulty level
-    filter_difficulty:
-      - "1"
-      - "2"
-    ```
+# Optional: filter by difficulty level
+filter_difficulty:
+  - "1"
+  - "2"
+```
 
 ### Advanced Options
 
@@ -280,8 +281,8 @@ However, overly verbose responses risk matching unintended substrings. Keep answ
 | **Level 3** | 15-25%+ | Excellent -- sophisticated planning and tool orchestration |
 | **Level 3** | 5-15% | Expected -- Level 3 is extremely challenging for current systems |
 
-!!! note "Context: Human vs. AI Performance"
-    The GAIA paper reports human accuracy above 90% across all levels using standard tools (web browser, calculator). The large gap between human and AI performance is by design -- GAIA measures the integration capabilities that humans take for granted but AI systems find difficult.
+> **Note:** Context: Human vs. AI Performance
+> The GAIA paper reports human accuracy above 90% across all levels using standard tools (web browser, calculator). The large gap between human and AI performance is by design -- GAIA measures the integration capabilities that humans take for granted but AI systems find difficult.
 
 ### Common Failure Patterns
 
@@ -372,8 +373,8 @@ However, overly verbose responses risk matching unintended substrings. Keep answ
 | **Typical Timeout** | 180-600s | 180-300s | 120-300s | 120-300s |
 | **Best For** | General assistant capability | MCP-specific tool use | Broad agent evaluation | API tool selection |
 
-!!! tip "When to Use GAIA"
-    Use GAIA when you want to evaluate an MCP server's effectiveness as a **general-purpose assistant**. GAIA tests the combination of reasoning, tool use, and information retrieval that defines a practical AI assistant. For MCP-specific tool use metrics, use MCPToolBench++. For code-focused evaluation, use SWE-bench or HumanEval.
+> **When to Use GAIA**
+> Use GAIA when you want to evaluate an MCP server's effectiveness as a **general-purpose assistant**. GAIA tests the combination of reasoning, tool use, and information retrieval that defines a practical AI assistant. For MCP-specific tool use metrics, use MCPToolBench++. For code-focused evaluation, use SWE-bench or HumanEval.
 
 ## References
 

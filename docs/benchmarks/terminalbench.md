@@ -1,4 +1,5 @@
 ---
+category: "Tool Use & Agents"
 title: "TerminalBench: Shell & Terminal Task Evaluation for AI Agents"
 description: "TerminalBench evaluates AI agents on practical terminal and shell tasks including file manipulation, system administration, scripting, and command-line tool usage with validation-command-based evaluation."
 benchmark_howto:
@@ -33,10 +34,10 @@ faq:
 | **Pre-built Images** | No |
 | **Difficulty Levels** | easy, medium, hard |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark terminalbench -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark terminalbench -n 20
+> ```
 
 ## Overview
 
@@ -103,52 +104,52 @@ After the agent executes its commands, the validation command (e.g., `test -d /w
 
 ### Basic Configuration
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run TerminalBench with default settings
-    mcpbr run -c config.yaml --benchmark terminalbench
+```bash
+# Run TerminalBench with default settings
+mcpbr run -c config.yaml --benchmark terminalbench
 
-    # Run a sample of 20 tasks
-    mcpbr run -c config.yaml --benchmark terminalbench -n 20
+# Run a sample of 20 tasks
+mcpbr run -c config.yaml --benchmark terminalbench -n 20
 
-    # Filter by difficulty
-    mcpbr run -c config.yaml --benchmark terminalbench --filter-difficulty easy
+# Filter by difficulty
+mcpbr run -c config.yaml --benchmark terminalbench --filter-difficulty easy
 
-    # Filter by category
-    mcpbr run -c config.yaml --benchmark terminalbench --filter-category scripting
+# Filter by category
+mcpbr run -c config.yaml --benchmark terminalbench --filter-category scripting
 
-    # Combine difficulty and category filters
-    mcpbr run -c config.yaml --benchmark terminalbench \
-      --filter-difficulty medium --filter-category file-manipulation
+# Combine difficulty and category filters
+mcpbr run -c config.yaml --benchmark terminalbench \
+  --filter-difficulty medium --filter-category file-manipulation
 
-    # Run with verbose output
-    mcpbr run -c config.yaml --benchmark terminalbench -n 10 -v
+# Run with verbose output
+mcpbr run -c config.yaml --benchmark terminalbench -n 10 -v
 
-    # Save results to JSON
-    mcpbr run -c config.yaml --benchmark terminalbench -n 20 -o results.json
-    ```
+# Save results to JSON
+mcpbr run -c config.yaml --benchmark terminalbench -n 20 -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "terminalbench"
-    sample_size: 10
-    timeout_seconds: 120
+```yaml
+benchmark: "terminalbench"
+sample_size: 10
+timeout_seconds: 120
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: Filter by difficulty and category
-    filter_difficulty:
-      - "easy"
-      - "medium"
-    filter_category:
-      - "file-manipulation"
-    ```
+# Optional: Filter by difficulty and category
+filter_difficulty:
+  - "easy"
+  - "medium"
+filter_category:
+  - "file-manipulation"
+```
 
 ### Advanced Options
 
@@ -218,8 +219,8 @@ Tasks without a validation command are marked as unresolved since there is no wa
 | **Hard** | 40-60%+ | Good -- agent handles system administration and complex scripting |
 | **Hard** | 20-40% | Expected -- hard tasks require advanced shell knowledge |
 
-!!! note "Category-Specific Expectations"
-    Performance varies significantly by category. **File manipulation** tasks tend to have the highest resolve rates since they involve well-known commands. **System administration** tasks are typically hardest because they involve less common operations and require understanding of system configuration details.
+> **Note:** Category-Specific Expectations
+> Performance varies significantly by category. **File manipulation** tasks tend to have the highest resolve rates since they involve well-known commands. **System administration** tasks are typically hardest because they involve less common operations and require understanding of system configuration details.
 
 ### Common Failure Patterns
 
@@ -312,8 +313,8 @@ Tasks without a validation command are marked as unresolved since there is no wa
 | **Typical Timeout** | 120-300s | 120-300s | 600-900s | 120-300s | 300-600s |
 | **Best For** | CLI capability testing | Multi-environment code interaction | Security research | Broad agent evaluation | Software engineering |
 
-!!! tip "When to Use TerminalBench"
-    Use TerminalBench when you want to evaluate an MCP server's effectiveness for **practical command-line and system administration tasks**. It is the best benchmark for testing whether an agent can reliably execute shell commands to produce real-world outcomes. For code-focused evaluation, use HumanEval or SWE-bench. For security-focused shell interaction, use CyberGym.
+> **When to Use TerminalBench**
+> Use TerminalBench when you want to evaluate an MCP server's effectiveness for **practical command-line and system administration tasks**. It is the best benchmark for testing whether an agent can reliably execute shell commands to produce real-world outcomes. For code-focused evaluation, use HumanEval or SWE-bench. For security-focused shell interaction, use CyberGym.
 
 ## References
 

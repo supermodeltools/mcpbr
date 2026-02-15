@@ -1,4 +1,5 @@
 ---
+category: "Code Generation"
 title: "HumanEval: OpenAI Python Programming Benchmark (164 Problems)"
 description: "HumanEval evaluates AI agents on 164 Python programming problems from OpenAI, testing code generation from function signatures and docstrings with unit test verification."
 benchmark_howto:
@@ -33,10 +34,10 @@ faq:
 | **Pre-built Images** | No (lightweight Python container) |
 | **Difficulty Levels** | None (uniform difficulty) |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark humaneval -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark humaneval -n 20
+> ```
 
 ## Overview
 
@@ -94,39 +95,39 @@ The agent receives the function signature and docstring, implements the function
 
 ### Basic Configuration
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run HumanEval with default settings
-    mcpbr run -c config.yaml --benchmark humaneval
+```bash
+# Run HumanEval with default settings
+mcpbr run -c config.yaml --benchmark humaneval
 
-    # Run a small sample for quick testing
-    mcpbr run -c config.yaml --benchmark humaneval -n 20
+# Run a small sample for quick testing
+mcpbr run -c config.yaml --benchmark humaneval -n 20
 
-    # Run specific tasks by ID
-    mcpbr run -c config.yaml --benchmark humaneval -t HumanEval/0 -t HumanEval/1
+# Run specific tasks by ID
+mcpbr run -c config.yaml --benchmark humaneval -t HumanEval/0 -t HumanEval/1
 
-    # Run with verbose output
-    mcpbr run -c config.yaml --benchmark humaneval -n 10 -v
+# Run with verbose output
+mcpbr run -c config.yaml --benchmark humaneval -n 10 -v
 
-    # Save results to JSON
-    mcpbr run -c config.yaml --benchmark humaneval -n 20 -o results.json
-    ```
+# Save results to JSON
+mcpbr run -c config.yaml --benchmark humaneval -n 20 -o results.json
+```
 
-=== "YAML Configuration"
+#### YAML Configuration
 
-    ```yaml
-    benchmark: "humaneval"
-    sample_size: 10
-    timeout_seconds: 180
-    max_iterations: 15
+```yaml
+benchmark: "humaneval"
+sample_size: 10
+timeout_seconds: 180
+max_iterations: 15
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
-    ```
+model: "sonnet"
+```
 
 ### Advanced Options
 
@@ -191,8 +192,8 @@ The evaluation does not require any external packages. All HumanEval tasks use o
 | **70-80%** | Adequate -- baseline capability, check for prompt or configuration improvements |
 | **Below 70%** | Needs investigation -- likely configuration issues, poor prompting, or MCP server problems |
 
-!!! note "Context: Industry Benchmarks"
-    Leading models (Claude, GPT-4, etc.) achieve 85-95% on HumanEval without MCP assistance. An effective MCP server integration should maintain or slightly improve these scores. Significant drops below the base model's capability suggest integration issues rather than model limitations.
+> **Note:** Context: Industry Benchmarks
+> Leading models (Claude, GPT-4, etc.) achieve 85-95% on HumanEval without MCP assistance. An effective MCP server integration should maintain or slightly improve these scores. Significant drops below the base model's capability suggest integration issues rather than model limitations.
 
 ### Common Failure Patterns
 
@@ -285,8 +286,8 @@ The evaluation does not require any external packages. All HumanEval tasks use o
 | **Typical Runtime** | 1-2 min/task | 1-2 min/task | 5-10 min/task | 2-5 min/task |
 | **Best For** | Quick smoke tests, baseline metrics | Larger-scale code generation evaluation | Real-world software engineering | Broad code generation across difficulty levels |
 
-!!! tip "When to Use HumanEval"
-    Use HumanEval when you need a **quick, reliable baseline** for code generation capability. It is the standard first benchmark to run when setting up a new MCP server or model configuration. For more comprehensive evaluation, follow up with SWE-bench or APPS.
+> **When to Use HumanEval**
+> Use HumanEval when you need a **quick, reliable baseline** for code generation capability. It is the standard first benchmark to run when setting up a new MCP server or model configuration. For more comprehensive evaluation, follow up with SWE-bench or APPS.
 
 ## References
 

@@ -1,4 +1,5 @@
 ---
+category: "Software Engineering"
 title: "SWE-bench: Real GitHub Bug Fix Evaluation & Setup Guide"
 description: "SWE-bench evaluates AI agents on real-world GitHub bug fixes, testing their ability to generate patches that resolve actual software issues from popular Python repositories."
 benchmark_howto:
@@ -33,10 +34,10 @@ faq:
 | **Output Type** | Patch (unified diff) |
 | **Timeout** | 300-600s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark swe-bench-verified
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark swe-bench-verified
+> ```
 
 ## Overview
 
@@ -66,62 +67,62 @@ The agent receives the problem statement and access to the repository at the bas
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run SWE-bench Verified (default, manually validated tests)
-    mcpbr run -c config.yaml --benchmark swe-bench-verified
+```bash
+# Run SWE-bench Verified (default, manually validated tests)
+mcpbr run -c config.yaml --benchmark swe-bench-verified
 
-    # Run SWE-bench Lite (300 tasks, quick testing)
-    mcpbr run -c config.yaml --benchmark swe-bench-lite
+# Run SWE-bench Lite (300 tasks, quick testing)
+mcpbr run -c config.yaml --benchmark swe-bench-lite
 
-    # Run SWE-bench Full (2,294 tasks, comprehensive)
-    mcpbr run -c config.yaml --benchmark swe-bench-full
+# Run SWE-bench Full (2,294 tasks, comprehensive)
+mcpbr run -c config.yaml --benchmark swe-bench-full
 
-    # Run a sample of 20 tasks
-    mcpbr run -c config.yaml --benchmark swe-bench-verified -n 20
+# Run a sample of 20 tasks
+mcpbr run -c config.yaml --benchmark swe-bench-verified -n 20
 
-    # Run specific tasks by instance ID
-    mcpbr run -c config.yaml --benchmark swe-bench-verified -t django__django-11099
+# Run specific tasks by instance ID
+mcpbr run -c config.yaml --benchmark swe-bench-verified -t django__django-11099
 
-    # Filter by repository
-    mcpbr run -c config.yaml --benchmark swe-bench-verified --filter-category django
+# Filter by repository
+mcpbr run -c config.yaml --benchmark swe-bench-verified --filter-category django
 
-    # Filter by multiple repositories
-    mcpbr run -c config.yaml --benchmark swe-bench-verified \
-      --filter-category django --filter-category scikit-learn
-    ```
+# Filter by multiple repositories
+mcpbr run -c config.yaml --benchmark swe-bench-verified \
+  --filter-category django --filter-category scikit-learn
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    # SWE-bench Verified (recommended)
-    benchmark: "swe-bench-verified"
-    sample_size: 10
-    timeout_seconds: 300
-    use_prebuilt_images: true
+```yaml
+# SWE-bench Verified (recommended)
+benchmark: "swe-bench-verified"
+sample_size: 10
+timeout_seconds: 300
+use_prebuilt_images: true
 
-    # Optional: Filter by repository
-    filter_category:
-      - "django"
-      - "scikit-learn"
-    ```
+# Optional: Filter by repository
+filter_category:
+  - "django"
+  - "scikit-learn"
+```
 
-    Alternative variant configurations:
+Alternative variant configurations:
 
-    ```yaml
-    # SWE-bench Lite for quick testing
-    benchmark: "swe-bench-lite"
-    sample_size: 20
-    timeout_seconds: 300
-    ```
+```yaml
+# SWE-bench Lite for quick testing
+benchmark: "swe-bench-lite"
+sample_size: 20
+timeout_seconds: 300
+```
 
-    ```yaml
-    # SWE-bench Full for comprehensive evaluation
-    benchmark: "swe-bench-full"
-    sample_size: 50
-    timeout_seconds: 600
-    ```
+```yaml
+# SWE-bench Full for comprehensive evaluation
+benchmark: "swe-bench-full"
+sample_size: 50
+timeout_seconds: 600
+```
 
 ## Evaluation Methodology
 

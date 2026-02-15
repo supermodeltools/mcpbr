@@ -1,4 +1,5 @@
 ---
+category: "Tool Use & Agents"
 title: "AgentBench: Autonomous Agent Evaluation Across OS, Database & Web"
 description: "AgentBench benchmark for evaluating LLMs as autonomous agents across diverse environments including OS, databases, and web."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Completion verification |
 | **Timeout** | 180-600 seconds |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark agentbench -n 10
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark agentbench -n 10
+> ```
 
 ## Overview
 
@@ -103,39 +104,39 @@ Expected Output: Added to cart
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run AgentBench with default settings
-    mcpbr run -c config.yaml --benchmark agentbench
+```bash
+# Run AgentBench with default settings
+mcpbr run -c config.yaml --benchmark agentbench
 
-    # Run a small sample
-    mcpbr run -c config.yaml --benchmark agentbench -n 10
+# Run a small sample
+mcpbr run -c config.yaml --benchmark agentbench -n 10
 
-    # Filter by environment type
-    mcpbr run -c config.yaml --benchmark agentbench --filter-category os
-    mcpbr run -c config.yaml --benchmark agentbench --filter-category db
+# Filter by environment type
+mcpbr run -c config.yaml --benchmark agentbench --filter-category os
+mcpbr run -c config.yaml --benchmark agentbench --filter-category db
 
-    # Run multiple environment types
-    mcpbr run -c config.yaml --benchmark agentbench \
-      --filter-category os --filter-category db
+# Run multiple environment types
+mcpbr run -c config.yaml --benchmark agentbench \
+  --filter-category os --filter-category db
 
-    # Run with extended timeout and verbose output
-    mcpbr run -c config.yaml --benchmark agentbench -n 20 -v -o results.json
-    ```
+# Run with extended timeout and verbose output
+mcpbr run -c config.yaml --benchmark agentbench -n 20 -v -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "agentbench"
-    sample_size: 10
-    timeout_seconds: 300
+```yaml
+benchmark: "agentbench"
+sample_size: 10
+timeout_seconds: 300
 
-    # Optional: filter to specific environments
-    filter_category:
-      - "os"
-      - "db"
-    ```
+# Optional: filter to specific environments
+filter_category:
+  - "os"
+  - "db"
+```
 
 ### Environment Filtering
 

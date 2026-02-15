@@ -1,4 +1,5 @@
 ---
+category: "Security"
 title: "CyberGym: Cybersecurity Exploit Generation Benchmark for AI Agents"
 description: "CyberGym is a cybersecurity benchmark from UC Berkeley where agents generate Proof-of-Concept exploits for real C/C++ vulnerabilities across four difficulty levels."
 benchmark_howto:
@@ -33,10 +34,10 @@ faq:
 | **Pre-built Images** | No (builds from scratch with ASAN toolchain) |
 | **Difficulty Levels** | 0-3 (controls context provided to agent) |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark cybergym
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark cybergym
+> ```
 
 ## Overview
 
@@ -143,42 +144,42 @@ The PoC will be tested against both pre-patch and post-patch versions.
 
 ### Basic Configuration
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run CyberGym at default level (1)
-    mcpbr run -c config.yaml --benchmark cybergym
+```bash
+# Run CyberGym at default level (1)
+mcpbr run -c config.yaml --benchmark cybergym
 
-    # Run at level 3 (maximum context)
-    mcpbr run -c config.yaml --benchmark cybergym --level 3
+# Run at level 3 (maximum context)
+mcpbr run -c config.yaml --benchmark cybergym --level 3
 
-    # Run at level 0 (minimal context, hardest)
-    mcpbr run -c config.yaml --benchmark cybergym --level 0
+# Run at level 0 (minimal context, hardest)
+mcpbr run -c config.yaml --benchmark cybergym --level 0
 
-    # Run a sample of 10 tasks
-    mcpbr run -c config.yaml --benchmark cybergym -n 10
+# Run a sample of 10 tasks
+mcpbr run -c config.yaml --benchmark cybergym -n 10
 
-    # Run specific vulnerability
-    mcpbr run -c config.yaml --benchmark cybergym -t arvo:1065
+# Run specific vulnerability
+mcpbr run -c config.yaml --benchmark cybergym -t arvo:1065
 
-    # Save results to JSON
-    mcpbr run -c config.yaml --benchmark cybergym -n 10 -o results.json
-    ```
+# Save results to JSON
+mcpbr run -c config.yaml --benchmark cybergym -n 10 -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "cybergym"
-    cybergym_level: 2
-    sample_size: 10
-    timeout_seconds: 600
+```yaml
+benchmark: "cybergym"
+cybergym_level: 2
+sample_size: 10
+timeout_seconds: 600
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
-    ```
+model: "sonnet"
+```
 
 ### Advanced Options
 
@@ -264,8 +265,8 @@ CyberGym evaluation differs significantly from code-fixing benchmarks. The proce
 | **Level 1** (language hint) | 10-25% | Strong discovery and exploitation capability |
 | **Level 0** (minimal) | 5-15% | Exceptional -- agent discovers and exploits with minimal guidance |
 
-!!! warning "Difficulty Expectation"
-    CyberGym is inherently difficult. Even Level 3 tasks require understanding C/C++ memory safety, vulnerability classes, and exploitation techniques. Low absolute scores are expected and normal -- focus on relative improvements between configurations.
+> **Warning:** Difficulty Expectation
+> CyberGym is inherently difficult. Even Level 3 tasks require understanding C/C++ memory safety, vulnerability classes, and exploitation techniques. Low absolute scores are expected and normal -- focus on relative improvements between configurations.
 
 ### Common Failure Patterns
 
@@ -357,8 +358,8 @@ CyberGym evaluation differs significantly from code-fixing benchmarks. The proce
 | **Resource Usage** | High (compilation, ASAN) | Medium-high | Low | Low-medium |
 | **Best For** | Security research evaluation | MCP server evaluation | CLI capability testing | Interactive environment tasks |
 
-!!! tip "When to Use CyberGym"
-    Use CyberGym when you need to evaluate an MCP server's capability to assist with **security research tasks**. It tests the unique combination of code analysis, vulnerability understanding, and exploit development that is not covered by other benchmarks. For general code capabilities, start with SWE-bench or HumanEval.
+> **When to Use CyberGym**
+> Use CyberGym when you need to evaluate an MCP server's capability to assist with **security research tasks**. It tests the unique combination of code analysis, vulnerability understanding, and exploit development that is not covered by other benchmarks. For general code capabilities, start with SWE-bench or HumanEval.
 
 ## References
 

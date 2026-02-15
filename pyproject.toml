@@ -54,10 +54,7 @@ dev = [
     "types-psutil",
 ]
 docs = [
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.0",
-    "mkdocstrings[python]>=0.24.0",
-    "mkdocs-minify-plugin>=0.7.0",
+    # Site is now built with SchemaFlux (no Python deps needed)
 ]
 openai = ["openai>=1.0.0"]
 gemini = ["google-generativeai>=0.3.0"]
@@ -86,9 +83,11 @@ packages = ["src/mcpbr"]
 [tool.hatch.build.targets.sdist]
 exclude = [
     "docs/",
-    "mkdocs.yml",
+    "templates/",
+    "static/",
+    "schemaflux.yaml",
     "site/",
-    ".github/workflows/docs.yml",
+    ".github/workflows/deploy-site.yml",
 ]
 
 [tool.ruff]

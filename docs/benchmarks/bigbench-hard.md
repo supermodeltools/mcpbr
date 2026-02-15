@@ -1,4 +1,5 @@
 ---
+category: "Math & Reasoning"
 title: "BigBench-Hard (BBH): 27 Challenging Reasoning Tasks Beyond Human Baseline"
 description: "BigBench-Hard benchmark for mcpbr - 27 challenging reasoning tasks from BIG-Bench where language models score below average human performance."
 benchmark_howto:
@@ -31,10 +32,10 @@ faq:
 | **Output Type** | Text answer (exact match) |
 | **Timeout** | 60-180s |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark bigbench-hard -n 20
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark bigbench-hard -n 20
+> ```
 
 ## Overview
 
@@ -112,54 +113,54 @@ Target: (B)
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run BigBench-Hard with default settings (all 27 subtasks)
-    mcpbr run -c config.yaml --benchmark bigbench-hard
+```bash
+# Run BigBench-Hard with default settings (all 27 subtasks)
+mcpbr run -c config.yaml --benchmark bigbench-hard
 
-    # Run a small sample for quick testing
-    mcpbr run -c config.yaml --benchmark bigbench-hard -n 20
+# Run a small sample for quick testing
+mcpbr run -c config.yaml --benchmark bigbench-hard -n 20
 
-    # Filter to specific subtasks
-    mcpbr run -c config.yaml --benchmark bigbench-hard \
-      --filter-category boolean_expressions \
-      --filter-category date_understanding
+# Filter to specific subtasks
+mcpbr run -c config.yaml --benchmark bigbench-hard \
+  --filter-category boolean_expressions \
+  --filter-category date_understanding
 
-    # Run only logical deduction tasks
-    mcpbr run -c config.yaml --benchmark bigbench-hard \
-      --filter-category logical_deduction_three_objects \
-      --filter-category logical_deduction_five_objects \
-      --filter-category logical_deduction_seven_objects
+# Run only logical deduction tasks
+mcpbr run -c config.yaml --benchmark bigbench-hard \
+  --filter-category logical_deduction_three_objects \
+  --filter-category logical_deduction_five_objects \
+  --filter-category logical_deduction_seven_objects
 
-    # Run with verbose output and save results
-    mcpbr run -c config.yaml --benchmark bigbench-hard -n 100 -v -o results.json
+# Run with verbose output and save results
+mcpbr run -c config.yaml --benchmark bigbench-hard -n 100 -v -o results.json
 
-    # Run specific tasks by ID
-    mcpbr run -c config.yaml --benchmark bigbench-hard \
-      -t bbh_boolean_expressions_0 -t bbh_date_understanding_14
-    ```
+# Run specific tasks by ID
+mcpbr run -c config.yaml --benchmark bigbench-hard \
+  -t bbh_boolean_expressions_0 -t bbh_date_understanding_14
+```
 
-=== "YAML Configuration"
+#### YAML Configuration
 
-    ```yaml
-    benchmark: "bigbench-hard"
-    sample_size: 10
-    timeout_seconds: 180
-    max_iterations: 15
+```yaml
+benchmark: "bigbench-hard"
+sample_size: 10
+timeout_seconds: 180
+max_iterations: 15
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: Filter to specific subtasks
-    filter_category:
-      - "boolean_expressions"
-      - "logical_deduction_five_objects"
-      - "tracking_shuffled_objects_three_objects"
-    ```
+# Optional: Filter to specific subtasks
+filter_category:
+  - "boolean_expressions"
+  - "logical_deduction_five_objects"
+  - "tracking_shuffled_objects_three_objects"
+```
 
 ## Evaluation Methodology
 
@@ -177,11 +178,11 @@ BigBench-Hard uses a simple but strict exact-match evaluation:
 
 4. **Verdict**: The task is marked as **resolved** if the agent's last non-empty line exactly matches the target answer.
 
-!!! warning "Last-line extraction"
-    The evaluator uses the **last non-empty line** of the agent's response as the answer. This means the agent must place its final answer on the last line. If the agent adds commentary or explanations after the answer, the evaluation will likely fail.
+> **Warning:** Last-line extraction
+> The evaluator uses the **last non-empty line** of the agent's response as the answer. This means the agent must place its final answer on the last line. If the agent adds commentary or explanations after the answer, the evaluation will likely fail.
 
-!!! note "Evaluation is offline"
-    BBH evaluation does not execute code in the Docker container. The comparison is performed entirely on text. The Docker environment is created so the agent has access to tools for any computation it wants to perform during reasoning, but the final evaluation is text-based.
+> **Note:** Evaluation is offline
+> BBH evaluation does not execute code in the Docker container. The comparison is performed entirely on text. The Docker environment is created so the agent has access to tools for any computation it wants to perform during reasoning, but the final evaluation is text-based.
 
 ## Example Output
 

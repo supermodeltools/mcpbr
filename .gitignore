@@ -103,3 +103,4 @@ docker-build/
 
 # MkDocs build output
 site/
+static/mcpbr-demo.gif

@@ -1,4 +1,5 @@
 ---
+category: "Software Engineering"
 title: "LeetCode: Algorithmic Coding Problems for AI Agent Evaluation"
 description: "LeetCode evaluates AI agents on algorithmic coding problems across easy, medium, and hard difficulty levels, covering data structures, algorithms, and common interview topics."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Code execution result |
 | **Timeout** | 180-300s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark leetcode
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark leetcode
+> ```
 
 ## Overview
 
@@ -64,66 +65,66 @@ The agent receives the problem title, difficulty, and full description, and must
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run LeetCode with default settings
-    mcpbr run -c config.yaml --benchmark leetcode
+```bash
+# Run LeetCode with default settings
+mcpbr run -c config.yaml --benchmark leetcode
 
-    # Run a sample of 20 problems
-    mcpbr run -c config.yaml --benchmark leetcode -n 20
+# Run a sample of 20 problems
+mcpbr run -c config.yaml --benchmark leetcode -n 20
 
-    # Run a specific problem by ID or slug
-    mcpbr run -c config.yaml --benchmark leetcode -t 1
+# Run a specific problem by ID or slug
+mcpbr run -c config.yaml --benchmark leetcode -t 1
 
-    # Filter by difficulty
-    mcpbr run -c config.yaml --benchmark leetcode --filter-difficulty easy
+# Filter by difficulty
+mcpbr run -c config.yaml --benchmark leetcode --filter-difficulty easy
 
-    # Filter for medium and hard problems
-    mcpbr run -c config.yaml --benchmark leetcode \
-      --filter-difficulty medium --filter-difficulty hard
+# Filter for medium and hard problems
+mcpbr run -c config.yaml --benchmark leetcode \
+  --filter-difficulty medium --filter-difficulty hard
 
-    # Filter by topic tag
-    mcpbr run -c config.yaml --benchmark leetcode --filter-tags dynamic-programming
+# Filter by topic tag
+mcpbr run -c config.yaml --benchmark leetcode --filter-tags dynamic-programming
 
-    # Combine difficulty and topic filters
-    mcpbr run -c config.yaml --benchmark leetcode \
-      --filter-difficulty medium --filter-tags array --filter-tags two-pointers
-    ```
+# Combine difficulty and topic filters
+mcpbr run -c config.yaml --benchmark leetcode \
+  --filter-difficulty medium --filter-tags array --filter-tags two-pointers
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "leetcode"
-    sample_size: 10
-    timeout_seconds: 180
-    ```
+```yaml
+benchmark: "leetcode"
+sample_size: 10
+timeout_seconds: 180
+```
 
-    Configuration filtered by difficulty:
+Configuration filtered by difficulty:
 
-    ```yaml
-    benchmark: "leetcode"
-    sample_size: 20
-    timeout_seconds: 180
+```yaml
+benchmark: "leetcode"
+sample_size: 20
+timeout_seconds: 180
 
-    filter_difficulty:
-      - "easy"
-      - "medium"
-    ```
+filter_difficulty:
+  - "easy"
+  - "medium"
+```
 
-    Configuration filtered by topic:
+Configuration filtered by topic:
 
-    ```yaml
-    benchmark: "leetcode"
-    sample_size: 15
-    timeout_seconds: 300
+```yaml
+benchmark: "leetcode"
+sample_size: 15
+timeout_seconds: 300
 
-    filter_difficulty:
-      - "hard"
-    filter_tags:
-      - "dynamic-programming"
-      - "graph"
-    ```
+filter_difficulty:
+  - "hard"
+filter_tags:
+  - "dynamic-programming"
+  - "graph"
+```
 
 ## Evaluation Methodology
 

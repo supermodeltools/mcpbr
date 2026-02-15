@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="{{.Site.Language}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CLI Reference | {{.Site.Name}}</title>
+  <meta name="description" content="mcpbr CLI reference with all commands, options, and examples for running benchmarks, managing configs, and cleaning up resources.">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#6D28D9">
+  <link rel="canonical" href="{{.Site.BaseURL}}/cli.html">
+  <link rel="icon" href="/mcpbr-logo.jpg" type="image/jpeg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap">
+
+  <meta property="og:title" content="CLI Reference | mcpbr">
+  <meta property="og:description" content="mcpbr CLI reference with all commands, options, and examples.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{.Site.BaseURL}}/cli.html">
+  <meta property="og:image" content="{{.Site.BaseURL}}/mcpbr-logo.jpg">
+  <meta property="og:site_name" content="{{.Site.Name}}">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What commands are available in mcpbr?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "mcpbr provides commands: run (execute evaluations), init (generate config), models (list supported models), providers (list LLM providers), harnesses (list agent backends), benchmarks (list available benchmarks), and cleanup (remove orphaned Docker resources)."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I run only the MCP agent without the baseline?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Use the --mcp-only or -M flag: 'mcpbr run -c config.yaml -M'."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I save mcpbr results to a file?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Use --output (-o) for JSON results, --output-yaml (-y) for YAML results, and --report (-r) for a Markdown report."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <style>
+    :root {
+      --color-primary: #6D28D9;
+      --color-primary-light: #F3EEFF;
+      --color-text: #1a1a1a;
+      --color-text-muted: #6b7280;
+      --color-bg: #fafaf9;
+      --color-surface: #ffffff;
+      --color-border: #e5e5e5;
+      --radius: 6px;
+      --font-serif: 'DM Serif Display', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); color: var(--color-text); background: var(--color-bg); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: var(--color-primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .site-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem; max-width: 900px; margin: 0 auto; }
+    .site-brand { font-family: var(--font-serif); font-size: 1.25rem; color: var(--color-text); display: flex; align-items: center; gap: 0.5rem; }
+    .site-brand:hover { text-decoration: none; }
+    .site-brand img { width: 28px; height: 28px; border-radius: 4px; }
+    .site-header nav { display: flex; gap: 1.5rem; font-size: 0.9375rem; }
+    .site-header nav a { color: var(--color-text-muted); }
+    .site-header nav a:hover { color: var(--color-primary); text-decoration: none; }
+    main { max-width: 900px; margin: 0 auto; padding: 0 2rem 3rem; }
+    h1 { font-family: var(--font-serif); font-size: 2rem; line-height: 1.2; margin-bottom: 1rem; }
+    h2 { font-family: var(--font-serif); font-size: 1.375rem; margin: 2rem 0 0.75rem; padding-top: 1rem; border-top: 1px solid var(--color-border); }
+    h3 { font-size: 1.125rem; margin: 1.5rem 0 0.5rem; }
+    p { margin: 0.5rem 0; }
+    ul, ol { margin: 0.5rem 0 0.5rem 1.5rem; }
+    li { margin: 0.25rem 0; }
+    code { font-family: var(--font-mono); font-size: 0.85em; background: #f3f4f6; padding: 0.15rem 0.35rem; border-radius: 3px; }
+    pre { background: #1a1a1a; color: #e5e5e5; font-family: var(--font-mono); font-size: 0.8125rem; padding: 1rem 1.25rem; border-radius: var(--radius); overflow-x: auto; margin: 1rem 0; line-height: 1.5; }
+    pre code { background: none; padding: 0; color: inherit; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--color-border); }
+    th { font-weight: 600; background: var(--color-primary-light); }
+    .footer-links { text-align: center; font-size: 0.8125rem; color: var(--color-text-muted); margin: 2rem 0 0.5rem; }
+    .footer-links a { color: var(--color-text-muted); }
+    .created-by { text-align: center; font-size: 0.75rem; color: var(--color-text-muted); }
+    @media (max-width: 640px) { .site-header { padding: 0.75rem 1rem; } main { padding: 0 1rem 2rem; } h1 { font-size: 1.5rem; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-brand" href="/"><img src="/mcpbr-logo.jpg" alt="" width="28" height="28"> mcpbr</a>
+    <nav>
+      <a href="/installation.html">Install</a>
+      <a href="/category/index.html">Benchmarks</a>
+      <a href="/about.html">About</a>
+      <a href="https://github.com/greynewell/mcpbr">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>CLI Reference</h1>
+    <p>mcpbr provides a command-line interface for running evaluations and managing configurations.</p>
+    <pre><code>mcpbr --help
+mcpbr run --help</code></pre>
+
+    <h2>Commands Overview</h2>
+    <table>
+      <tr><th>Command</th><th>Description</th></tr>
+      <tr><td><code>mcpbr run</code></td><td>Run benchmark evaluation with configured MCP server</td></tr>
+      <tr><td><code>mcpbr init</code></td><td>Generate an example configuration file</td></tr>
+      <tr><td><code>mcpbr config</code></td><td>Manage configuration templates</td></tr>
+      <tr><td><code>mcpbr models</code></td><td>List supported models for evaluation</td></tr>
+      <tr><td><code>mcpbr providers</code></td><td>List available model providers</td></tr>
+      <tr><td><code>mcpbr harnesses</code></td><td>List available agent harnesses</td></tr>
+      <tr><td><code>mcpbr benchmarks</code></td><td>List available benchmarks</td></tr>
+      <tr><td><code>mcpbr cleanup</code></td><td>Remove orphaned mcpbr Docker resources</td></tr>
+    </table>
+
+    <h2>mcpbr run</h2>
+    <pre><code>mcpbr run -c CONFIG [OPTIONS]</code></pre>
+    <table>
+      <tr><th>Option</th><th>Short</th><th>Description</th></tr>
+      <tr><td><code>--config PATH</code></td><td><code>-c</code></td><td>Path to YAML configuration file (required)</td></tr>
+      <tr><td><code>--model TEXT</code></td><td><code>-m</code></td><td>Override model from config</td></tr>
+      <tr><td><code>--benchmark TEXT</code></td><td><code>-b</code></td><td>Override benchmark from config</td></tr>
+      <tr><td><code>--sample INTEGER</code></td><td><code>-n</code></td><td>Override sample size from config</td></tr>
+      <tr><td><code>--mcp-only</code></td><td><code>-M</code></td><td>Run only MCP evaluation (skip baseline)</td></tr>
+      <tr><td><code>--baseline-only</code></td><td><code>-B</code></td><td>Run only baseline evaluation (skip MCP)</td></tr>
+      <tr><td><code>--output PATH</code></td><td><code>-o</code></td><td>Path to save JSON results</td></tr>
+      <tr><td><code>--report PATH</code></td><td><code>-r</code></td><td>Path to save Markdown report</td></tr>
+      <tr><td><code>--output-yaml PATH</code></td><td><code>-y</code></td><td>Path to save YAML results</td></tr>
+      <tr><td><code>--verbose</code></td><td><code>-v</code></td><td>Verbose output (<code>-vv</code> for detailed)</td></tr>
+      <tr><td><code>--task TEXT</code></td><td><code>-t</code></td><td>Run specific task(s) by instance_id</td></tr>
+      <tr><td><code>--filter-difficulty</code></td><td></td><td>Filter by difficulty (repeatable)</td></tr>
+      <tr><td><code>--filter-category</code></td><td></td><td>Filter by category (repeatable)</td></tr>
+    </table>
+
+    <h3>Examples</h3>
+    <pre><code># Full evaluation with verbose output
+mcpbr run -c config.yaml -v
+
+# MCP-only with specific tasks
+mcpbr run -c config.yaml -M -t django__django-11099
+
+# Override model and sample size
+mcpbr run -c config.yaml -m opus -n 50
+
+# Save all output formats
+mcpbr run -c config.yaml -o results.json -y results.yaml -r report.md</code></pre>
+
+    <h2>mcpbr init</h2>
+    <pre><code>mcpbr init [OPTIONS]</code></pre>
+    <table>
+      <tr><th>Option</th><th>Short</th><th>Description</th></tr>
+      <tr><td><code>--output PATH</code></td><td><code>-o</code></td><td>Path to write config (default: <code>mcpbr.yaml</code>)</td></tr>
+      <tr><td><code>--template TEXT</code></td><td><code>-t</code></td><td>Template ID to use</td></tr>
+      <tr><td><code>--interactive</code></td><td><code>-i</code></td><td>Interactive template selection</td></tr>
+    </table>
+
+    <h2>mcpbr cleanup</h2>
+    <p>Remove orphaned mcpbr Docker resources (containers, volumes, networks).</p>
+    <pre><code># Preview what would be removed
+mcpbr cleanup --dry-run
+
+# Remove with confirmation
+mcpbr cleanup
+
+# Force remove all immediately
+mcpbr cleanup -f</code></pre>
+
+    <h2>Exit Codes</h2>
+    <table>
+      <tr><th>Code</th><th>Meaning</th></tr>
+      <tr><td>0</td><td>Success &mdash; at least one task resolved</td></tr>
+      <tr><td>1</td><td>Fatal error &mdash; config invalid, Docker unavailable, API error</td></tr>
+      <tr><td>2</td><td>No resolutions &mdash; evaluation ran but 0% success</td></tr>
+      <tr><td>3</td><td>Nothing evaluated &mdash; all tasks cached/skipped</td></tr>
+      <tr><td>130</td><td>Interrupted by user (Ctrl+C)</td></tr>
+    </table>
+
+    <h2>Environment Variables</h2>
+    <table>
+      <tr><th>Variable</th><th>Required</th><th>Description</th></tr>
+      <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Yes</td><td>Anthropic API key for Claude models</td></tr>
+    </table>
+
+    <h2>Next Steps</h2>
+    <ul>
+      <li><a href="/configuration.html">Configuration</a> &mdash; Full configuration reference</li>
+      <li><a href="/category/index.html">Benchmarks</a> &mdash; Available benchmarks and how to use them</li>
+      <li><a href="https://github.com/greynewell/mcpbr">GitHub</a> &mdash; Source code, issues, and discussions</li>
+    </ul>
+
+    <p class="footer-links">
+      <a href="/sitemap.xml">Sitemap</a> &middot;
+      <a href="/llms.txt">llms.txt</a>
+    </p>
+    <p class="created-by">Created by <a href="{{.Site.AuthorURL}}">{{.Site.Author}}</a></p>
+  </main>
+</body>
+</html>

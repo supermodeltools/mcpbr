@@ -1,4 +1,5 @@
 ---
+category: "ML Research"
 title: "MLAgentBench: Real ML Research Tasks from Kaggle Competitions"
 description: "MLAgentBench evaluates AI agents on real ML research tasks based on Kaggle competitions, testing their ability to train models, improve performance metrics, and debug ML pipelines."
 benchmark_howto:
@@ -25,10 +26,10 @@ faq:
 | **Output Type** | Numeric metric (accuracy, loss, F1, etc.) |
 | **Timeout** | 300-900s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark mlagentbench
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark mlagentbench
+> ```
 
 ## Overview
 
@@ -79,78 +80,78 @@ The agent must analyze the provided code, implement improvements, train a model,
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run MLAgentBench with default settings
-    mcpbr run -c config.yaml --benchmark mlagentbench
+```bash
+# Run MLAgentBench with default settings
+mcpbr run -c config.yaml --benchmark mlagentbench
 
-    # Run a sample of 5 tasks (ML tasks are resource-intensive)
-    mcpbr run -c config.yaml --benchmark mlagentbench -n 5
+# Run a sample of 5 tasks (ML tasks are resource-intensive)
+mcpbr run -c config.yaml --benchmark mlagentbench -n 5
 
-    # Filter by ML domain
-    mcpbr run -c config.yaml --benchmark mlagentbench --filter-category nlp
+# Filter by ML domain
+mcpbr run -c config.yaml --benchmark mlagentbench --filter-category nlp
 
-    # Filter by multiple domains
-    mcpbr run -c config.yaml --benchmark mlagentbench \
-      --filter-category cv --filter-category tabular
+# Filter by multiple domains
+mcpbr run -c config.yaml --benchmark mlagentbench \
+  --filter-category cv --filter-category tabular
 
-    # Run with extended timeout for training
-    mcpbr run -c config.yaml --benchmark mlagentbench -n 3 --timeout 900
+# Run with extended timeout for training
+mcpbr run -c config.yaml --benchmark mlagentbench -n 3 --timeout 900
 
-    # Run with verbose output
-    mcpbr run -c config.yaml --benchmark mlagentbench -n 5 -v
+# Run with verbose output
+mcpbr run -c config.yaml --benchmark mlagentbench -n 5 -v
 
-    # Save results to JSON
-    mcpbr run -c config.yaml --benchmark mlagentbench -n 10 -o results.json
-    ```
+# Save results to JSON
+mcpbr run -c config.yaml --benchmark mlagentbench -n 10 -o results.json
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "mlagentbench"
-    sample_size: 5
-    timeout_seconds: 600
+```yaml
+benchmark: "mlagentbench"
+sample_size: 5
+timeout_seconds: 600
 
-    mcp_server:
-      command: "npx"
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
 
-    model: "sonnet"
+model: "sonnet"
 
-    # Optional: Filter by domain
-    filter_category:
-      - "nlp"
-    ```
+# Optional: Filter by domain
+filter_category:
+  - "nlp"
+```
 
-    Configuration for compute-intensive CV tasks:
+Configuration for compute-intensive CV tasks:
 
-    ```yaml
-    benchmark: "mlagentbench"
-    sample_size: 3
-    timeout_seconds: 900
-    max_iterations: 40
-    max_concurrent: 2
+```yaml
+benchmark: "mlagentbench"
+sample_size: 3
+timeout_seconds: 900
+max_iterations: 40
+max_concurrent: 2
 
-    filter_category:
-      - "cv"
+filter_category:
+  - "cv"
 
-    model: "opus"
-    ```
+model: "opus"
+```
 
-    Configuration for quick tabular tasks:
+Configuration for quick tabular tasks:
 
-    ```yaml
-    benchmark: "mlagentbench"
-    sample_size: 10
-    timeout_seconds: 300
-    max_iterations: 25
+```yaml
+benchmark: "mlagentbench"
+sample_size: 10
+timeout_seconds: 300
+max_iterations: 25
 
-    filter_category:
-      - "tabular"
+filter_category:
+  - "tabular"
 
-    model: "sonnet"
-    ```
+model: "sonnet"
+```
 
 ## Evaluation Methodology
 

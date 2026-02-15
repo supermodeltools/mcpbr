@@ -1,4 +1,5 @@
 ---
+category: "Software Engineering"
 title: "CoderEval: Real-World Code Generation from Open-Source Projects"
 description: "CoderEval evaluates AI agents on pragmatic code generation from real-world open-source projects, testing the ability to implement functions with real project dependencies and context."
 benchmark_howto:
@@ -27,10 +28,10 @@ faq:
 | **Output Type** | Test pass/fail |
 | **Timeout** | 180-300s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark codereval
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark codereval
+> ```
 
 ## Overview
 
@@ -65,59 +66,59 @@ The agent receives the function name, language, documentation, and surrounding c
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run CoderEval with default settings
-    mcpbr run -c config.yaml --benchmark codereval
+```bash
+# Run CoderEval with default settings
+mcpbr run -c config.yaml --benchmark codereval
 
-    # Run a sample of 20 tasks
-    mcpbr run -c config.yaml --benchmark codereval -n 20
+# Run a sample of 20 tasks
+mcpbr run -c config.yaml --benchmark codereval -n 20
 
-    # Run a specific task
-    mcpbr run -c config.yaml --benchmark codereval -t TASK_ID
+# Run a specific task
+mcpbr run -c config.yaml --benchmark codereval -t TASK_ID
 
-    # Filter by programming language
-    mcpbr run -c config.yaml --benchmark codereval --filter-category python
+# Filter by programming language
+mcpbr run -c config.yaml --benchmark codereval --filter-category python
 
-    # Run only Java tasks
-    mcpbr run -c config.yaml --benchmark codereval --filter-category java
+# Run only Java tasks
+mcpbr run -c config.yaml --benchmark codereval --filter-category java
 
-    # Filter by difficulty level
-    mcpbr run -c config.yaml --benchmark codereval --filter-difficulty easy
-    ```
+# Filter by difficulty level
+mcpbr run -c config.yaml --benchmark codereval --filter-difficulty easy
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "codereval"
-    sample_size: 10
-    timeout_seconds: 300
-    ```
+```yaml
+benchmark: "codereval"
+sample_size: 10
+timeout_seconds: 300
+```
 
-    Configuration filtered by language:
+Configuration filtered by language:
 
-    ```yaml
-    benchmark: "codereval"
-    sample_size: 15
-    timeout_seconds: 300
+```yaml
+benchmark: "codereval"
+sample_size: 15
+timeout_seconds: 300
 
-    # Only Python tasks
-    filter_category:
-      - "python"
-    ```
+# Only Python tasks
+filter_category:
+  - "python"
+```
 
-    Multi-language configuration:
+Multi-language configuration:
 
-    ```yaml
-    benchmark: "codereval"
-    sample_size: 20
-    timeout_seconds: 300
+```yaml
+benchmark: "codereval"
+sample_size: 20
+timeout_seconds: 300
 
-    filter_category:
-      - "python"
-      - "javascript"
-    ```
+filter_category:
+  - "python"
+  - "javascript"
+```
 
 ## Evaluation Methodology
 

@@ -1,4 +1,5 @@
 ---
+category: "Software Engineering"
 title: "CodeContests: Competitive Programming Benchmark from Codeforces & CodeChef"
 description: "CodeContests evaluates AI agents on competitive programming problems from Codeforces, CodeChef, and other platforms, featuring public and private test cases with time and memory constraints."
 benchmark_howto:
@@ -31,10 +32,10 @@ faq:
 | **Output Type** | Test pass rate |
 | **Timeout** | 180-300s recommended |
 
-!!! tip "Quick Start"
-    ```bash
-    mcpbr run -c config.yaml --benchmark codecontests
-    ```
+> **Quick Start**
+> ```bash
+> mcpbr run -c config.yaml --benchmark codecontests
+> ```
 
 ## Overview
 
@@ -69,55 +70,55 @@ The agent receives the problem description along with sample test cases and must
 
 ## Running the Benchmark
 
-=== "CLI"
+#### CLI
 
-    ```bash
-    # Run CodeContests with default settings
-    mcpbr run -c config.yaml --benchmark codecontests
+```bash
+# Run CodeContests with default settings
+mcpbr run -c config.yaml --benchmark codecontests
 
-    # Run a sample of 20 problems
-    mcpbr run -c config.yaml --benchmark codecontests -n 20
+# Run a sample of 20 problems
+mcpbr run -c config.yaml --benchmark codecontests -n 20
 
-    # Run a specific task by name
-    mcpbr run -c config.yaml --benchmark codecontests -t codecontests_problem_name
+# Run a specific task by name
+mcpbr run -c config.yaml --benchmark codecontests -t codecontests_problem_name
 
-    # Filter by source platform
-    mcpbr run -c config.yaml --benchmark codecontests --filter-category codeforces
+# Filter by source platform
+mcpbr run -c config.yaml --benchmark codecontests --filter-category codeforces
 
-    # Filter by difficulty level
-    mcpbr run -c config.yaml --benchmark codecontests --filter-difficulty 1
+# Filter by difficulty level
+mcpbr run -c config.yaml --benchmark codecontests --filter-difficulty 1
 
-    # Combine filters
-    mcpbr run -c config.yaml --benchmark codecontests \
-      --filter-category codeforces --filter-difficulty 2
-    ```
+# Combine filters
+mcpbr run -c config.yaml --benchmark codecontests \
+  --filter-category codeforces --filter-difficulty 2
+```
 
-=== "YAML"
+#### YAML
 
-    ```yaml
-    benchmark: "codecontests"
-    sample_size: 10
-    timeout_seconds: 300
+```yaml
+benchmark: "codecontests"
+sample_size: 10
+timeout_seconds: 300
 
-    # Optional: Filter by source platform
-    filter_category:
-      - "codeforces"
-    ```
+# Optional: Filter by source platform
+filter_category:
+  - "codeforces"
+```
 
-    Configuration with difficulty filtering:
+Configuration with difficulty filtering:
 
-    ```yaml
-    benchmark: "codecontests"
-    sample_size: 20
-    timeout_seconds: 300
+```yaml
+benchmark: "codecontests"
+sample_size: 20
+timeout_seconds: 300
 
-    filter_difficulty:
-      - "1"
-      - "2"
-    filter_category:
-      - "codeforces"
-      - "codechef"
-    ```
+filter_difficulty:
+  - "1"
+  - "2"
+filter_category:
+  - "codeforces"
+  - "codechef"
+```
 
 ## Evaluation Methodology
 
