@@ -46,6 +46,7 @@ VALID_BENCHMARKS = (
     "mmmu",
     "longbench",
     "adversarial",
+    "codegraph",
 )
 VALID_INFRASTRUCTURE_MODES = ("local", "azure", "aws", "gcp", "kubernetes", "cloudflare")
 

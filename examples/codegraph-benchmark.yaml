@@ -1,0 +1,30 @@
+# Code Graph Navigation Benchmark
+#
+# Evaluates whether your MCP server helps agents navigate code knowledge graphs.
+# 300 tasks across 10 well-known open-source repos (flask, fastapi, express, etc.)
+# 3 difficulty tiers: easy, medium, hard
+#
+# The MCP agent gets graph exploration tools. The baseline agent gets nothing.
+# Delta proves whether your tools actually help agents understand code.
+#
+# Usage:
+#   mcpbr run -c examples/codegraph-benchmark.yaml
+#   mcpbr run -c examples/codegraph-benchmark.yaml --filter-difficulty easy
+#   mcpbr run -c examples/codegraph-benchmark.yaml --filter-category pallets/flask
+
+mcp_server:
+  name: "supermodel"
+  command: "npx"
+  args:
+    - "-y"
+    - "@anthropic/supermodel-mcp"
+    - "--graph-dir"
+    - "{workdir}/graphs"
+
+benchmark: codegraph
+provider: anthropic
+model: sonnet
+sample_size: 10
+timeout_seconds: 120
+max_concurrent: 4
+max_iterations: 20

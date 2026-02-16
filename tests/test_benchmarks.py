@@ -11,6 +11,7 @@ from mcpbr.benchmarks import (
     BigBenchHardBenchmark,
     BigCodeBenchBenchmark,
     CodeContestsBenchmark,
+    CodeGraphBenchmark,
     CoderEvalBenchmark,
     CyberGymBenchmark,
     GAIABenchmark,
@@ -67,7 +68,8 @@ class TestBenchmarkRegistry:
         assert "webarena" in benchmarks
         assert "mlagentbench" in benchmarks
         assert "intercode" in benchmarks
-        assert len(benchmarks) >= 27
+        assert "codegraph" in benchmarks
+        assert len(benchmarks) >= 28
 
     def test_create_swebench_lite(self) -> None:
         """Test creating SWE-bench Lite benchmark."""
@@ -1595,6 +1597,150 @@ class TestInterCodeBenchmark:
         assert isinstance(benchmark, InterCodeBenchmark)
 
 
+class TestCodeGraphBenchmark:
+    """Tests for CodeGraph benchmark implementation."""
+
+    def test_initialization(self) -> None:
+        """Test CodeGraph initialization."""
+        benchmark = CodeGraphBenchmark()
+        assert benchmark.name == "codegraph"
+        assert benchmark.dataset == "supermodeltools/codegraph-bench"
+
+    def test_custom_dataset(self) -> None:
+        """Test CodeGraph with custom dataset."""
+        benchmark = CodeGraphBenchmark(dataset="custom/dataset")
+        assert benchmark.dataset == "custom/dataset"
+
+    def test_normalize_task(self) -> None:
+        """Test normalizing CodeGraph task."""
+        benchmark = CodeGraphBenchmark()
+        task = {
+            "task_id": "pallets/flask:easy:0",
+            "instance_id": "pallets/flask:easy:0",
+            "repo": "pallets/flask",
+            "language": "python",
+            "difficulty": "easy",
+            "start_node": "node_abc123",
+            "target_node": "node_def456",
+            "description": "Find the function 'create_app' defined in this file",
+            "optimal_steps": 1,
+            "graph_file": "pallets_flask.json",
+        }
+
+        normalized = benchmark.normalize_task(task)
+        assert normalized.task_id == "pallets/flask:easy:0"
+        assert "pallets/flask" in normalized.problem_statement
+        assert "create_app" in normalized.problem_statement
+        assert normalized.repo == "pallets/flask"
+        assert normalized.commit == "HEAD"
+        assert normalized.metadata["difficulty"] == "easy"
+        assert normalized.metadata["target_node"] == "node_def456"
+        assert normalized.metadata["optimal_steps"] == 1
+
+    def test_normalize_task_missing_task_id(self) -> None:
+        """Test normalizing task without task_id raises error."""
+        benchmark = CodeGraphBenchmark()
+        task = {
+            "repo": "pallets/flask",
+            "start_node": "abc",
+            "target_node": "def",
+        }
+
+        with pytest.raises(ValueError, match="missing 'task_id' field"):
+            benchmark.normalize_task(task)
+
+    def test_generate_problem_statement(self) -> None:
+        """Test problem statement generation."""
+        benchmark = CodeGraphBenchmark()
+        task = {
+            "repo": "pallets/flask",
+            "description": "Find the function 'create_app'",
+            "start_node": "node_abc123",
+            "difficulty": "easy",
+        }
+
+        statement = benchmark._generate_problem_statement(task)
+        assert "pallets/flask" in statement
+        assert "create_app" in statement
+        assert "node_abc123" in statement
+        assert "SUBMIT:" in statement
+
+    def test_extract_submission_standard(self) -> None:
+        """Test extracting standard SUBMIT: format."""
+        benchmark = CodeGraphBenchmark()
+
+        text = "After exploring, I found the target.\nSUBMIT: node_def456"
+        assert benchmark._extract_submission(text) == "node_def456"
+
+    def test_extract_submission_quoted(self) -> None:
+        """Test extracting quoted SUBMIT: format."""
+        benchmark = CodeGraphBenchmark()
+
+        text = 'SUBMIT: "node_def456"'
+        assert benchmark._extract_submission(text) == "node_def456"
+
+    def test_extract_submission_lowercase(self) -> None:
+        """Test extracting lowercase submit format."""
+        benchmark = CodeGraphBenchmark()
+
+        text = "submit: node_def456"
+        assert benchmark._extract_submission(text) == "node_def456"
+
+    def test_extract_submission_none(self) -> None:
+        """Test returns None when no submission found."""
+        benchmark = CodeGraphBenchmark()
+
+        text = "I looked around but didn't find anything."
+        assert benchmark._extract_submission(text) is None
+
+    def test_extract_submission_empty(self) -> None:
+        """Test returns None for empty input."""
+        benchmark = CodeGraphBenchmark()
+        assert benchmark._extract_submission("") is None
+        assert benchmark._extract_submission(None) is None
+
+    def test_extract_submission_uuid_node(self) -> None:
+        """Test extracting UUID-style node IDs."""
+        benchmark = CodeGraphBenchmark()
+
+        text = "SUBMIT: 26040d82:fe87:50b3:37f1:0cf9f8cc9469"
+        assert benchmark._extract_submission(text) == "26040d82:fe87:50b3:37f1:0cf9f8cc9469"
+
+    def test_extract_submission_domain_node(self) -> None:
+        """Test extracting domain-style node IDs."""
+        benchmark = CodeGraphBenchmark()
+
+        text = "SUBMIT: domain:BenchmarkSuite"
+        assert benchmark._extract_submission(text) == "domain:BenchmarkSuite"
+
+    def test_get_prompt_template(self) -> None:
+        """Test getting prompt template."""
+        benchmark = CodeGraphBenchmark()
+        prompt = benchmark.get_prompt_template()
+        assert "{problem_statement}" in prompt
+        assert "SUBMIT:" in prompt
+        assert "MCP tools" in prompt
+
+    def test_get_prebuilt_image(self) -> None:
+        """Test getting pre-built image (should be None)."""
+        benchmark = CodeGraphBenchmark()
+        assert benchmark.get_prebuilt_image({}) is None
+
+    def test_get_default_sandbox_level(self) -> None:
+        """Test getting sandbox level (should be None)."""
+        benchmark = CodeGraphBenchmark()
+        assert benchmark.get_default_sandbox_level() is None
+
+    def test_create_via_factory(self) -> None:
+        """Test creating CodeGraph via factory."""
+        benchmark = create_benchmark("codegraph")
+        assert isinstance(benchmark, CodeGraphBenchmark)
+
+    def test_codegraph_in_list(self) -> None:
+        """Test CodeGraph appears in benchmark list."""
+        assert "codegraph" in list_benchmarks()
+
+
 class TestNewBenchmarkProtocol:
     """Tests for protocol compliance of all new benchmarks."""
 
@@ -1612,6 +1758,7 @@ class TestNewBenchmarkProtocol:
             BigCodeBenchBenchmark,
             LeetCodeBenchmark,
             CoderEvalBenchmark,
+            CodeGraphBenchmark,
             RepoQABenchmark,
             ToolBenchBenchmark,
             AiderPolyglotBenchmark,
@@ -1647,6 +1794,7 @@ class TestNewBenchmarkProtocol:
             "apps",
             "codecontests",
             "bigcodebench",
+            "codegraph",
             "leetcode",
             "codereval",
             "repoqa",
@@ -1677,6 +1825,7 @@ class TestNewBenchmarkProtocol:
             "apps",
             "codecontests",
             "bigcodebench",
+            "codegraph",
             "leetcode",
             "codereval",
             "repoqa",
