@@ -6,11 +6,16 @@ target node using graph exploration tools. Tasks span 10 well-known
 open-source repos across 3 difficulty tiers (easy, medium, hard).
 
 Dataset: supermodeltools/codegraph-bench on HuggingFace
+
+The benchmark pre-loads graph files into the Docker container in
+Supermodel MCP server cache format. The MCP server reads from
+SUPERMODEL_CACHE_DIR at startup with --no-api-fallback.
 """
 
 import json
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Any
 
 from datasets import load_dataset
@@ -33,6 +38,8 @@ class CodeGraphBenchmark:
 
     name = "codegraph"
 
+    CACHE_DIR = "/workspace/supermodel-cache"
+
     def __init__(
         self,
         dataset: str = "supermodeltools/codegraph-bench",
@@ -46,6 +53,26 @@ class CodeGraphBenchmark:
         """
         self.dataset = dataset
         self.subset = subset
+        self._graphs_cache: dict[str, str] | None = None
+
+    def _load_graphs_from_hf(self) -> dict[str, str]:
+        """Load and cache all graph data from HuggingFace."""
+        if self._graphs_cache is not None:
+            return self._graphs_cache
+
+        self._graphs_cache = {}
+        try:
+            graphs_dataset = load_dataset(self.dataset, self.subset, split="graphs")
+            for row in graphs_dataset:
+                graph_file = row.get("graph_file", "")
+                graph_json = row.get("graph_json", "")
+                if graph_file and graph_json:
+                    self._graphs_cache[graph_file] = graph_json
+            logger.info("Loaded %d graphs from HuggingFace", len(self._graphs_cache))
+        except Exception:
+            logger.exception("Failed to load graphs from HuggingFace")
+
+        return self._graphs_cache
 
     def load_tasks(
         self,
@@ -155,10 +182,10 @@ class CodeGraphBenchmark:
             f"TASK: {description}\n\n"
             f"Your starting node ID is: {start_node}\n\n"
             f"Difficulty: {difficulty}\n\n"
-            "Use the available MCP tools to explore the graph:\n"
-            "- Inspect nodes to see their labels, properties, and type\n"
-            "- List neighbors to see connected nodes and relationship types\n"
-            "- Follow edges to traverse the graph\n\n"
+            "Use the Supermodel MCP tools to explore the graph:\n"
+            "- Use 'overview' to get the architectural map of the codebase\n"
+            "- Use 'symbol_context' to inspect specific functions, classes, or modules\n"
+            "- Navigate relationships: imports, calls, contains, belongsTo\n\n"
             "When you have found the target node, submit your answer by writing:\n"
             "SUBMIT: <node_id>\n\n"
             "where <node_id> is the exact ID of the target node."
@@ -171,17 +198,17 @@ class CodeGraphBenchmark:
         task: dict[str, Any],
         docker_manager: DockerEnvironmentManager,
     ) -> TaskEnvironment:
-        """Create environment with graph data pre-loaded.
+        """Create environment with graph data pre-loaded in MCP cache format.
 
-        Loads the relevant graph JSON into the Docker container so the
-        MCP server can serve it without API access.
+        Loads the graph from HuggingFace, converts to Supermodel MCP server
+        cache format, and writes to SUPERMODEL_CACHE_DIR in the container.
 
         Args:
             task: Task dictionary.
             docker_manager: Docker environment manager.
 
         Returns:
-            TaskEnvironment with graph files available.
+            TaskEnvironment with graph cache ready for MCP server.
         """
         instance_id = task.get("instance_id", "codegraph_unknown")
 
@@ -193,48 +220,60 @@ class CodeGraphBenchmark:
 
         env = await docker_manager.create_environment(temp_task)
 
-        # Load graph data into the container
+        # Pre-load graph data in MCP cache format
         await self._setup_environment(env, task)
 
         return env
 
     async def _setup_environment(self, env: TaskEnvironment, task: dict[str, Any]) -> None:
-        """Pre-load graph data into the container.
+        """Pre-load graph into container in Supermodel MCP server cache format.
 
-        Downloads the graph file from the HuggingFace dataset and writes
-        it into the container at /workspace/graphs/.
+        The MCP server reads from SUPERMODEL_CACHE_DIR at startup.
+        Cache format: {version, repoName, commitHash, savedAt, raw: <SupermodelIR>}
 
         Args:
             env: Task environment.
-            task: Task dictionary with graph_file reference.
+            task: Task dictionary with graph_file and repo.
         """
         graph_file = task.get("graph_file", "")
-        if not graph_file:
-            logger.warning("No graph_file specified for task %s", task.get("task_id"))
+        repo = task.get("repo", "")
+        if not graph_file or not repo:
+            logger.warning("No graph_file/repo for task %s", task.get("task_id"))
             return
 
-        # Create graphs directory
-        await env.exec_command("mkdir -p /workspace/graphs", timeout=10)
+        # Create cache directory
+        await env.exec_command(f"mkdir -p {self.CACHE_DIR}", timeout=10)
 
-        # Load graph data from the HuggingFace dataset (graphs split)
+        # Load graph data from HuggingFace
+        graphs = self._load_graphs_from_hf()
+        raw_json = graphs.get(graph_file)
+        if not raw_json:
+            logger.warning("Graph %s not found in dataset", graph_file)
+            return
+
+        # Parse the wrapper to extract SupermodelIR
         try:
-            graphs_dataset = load_dataset(self.dataset, self.subset, split="graphs")
-            graph_data = None
-            for row in graphs_dataset:
-                if row.get("graph_file") == graph_file:
-                    graph_data = row.get("graph_json")
-                    break
+            wrapper = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
+            data = wrapper.get("data", wrapper)
+            result = data.get("result") or data
+        except (json.JSONDecodeError, AttributeError):
+            logger.exception("Failed to parse graph %s", graph_file)
+            return
 
-            if graph_data:
-                await env.write_file(
-                    f"graphs/{graph_file}",
-                    graph_data if isinstance(graph_data, str) else json.dumps(graph_data),
-                )
-                logger.info("Loaded graph %s into container", graph_file)
-            else:
-                logger.warning("Graph %s not found in dataset", graph_file)
-        except Exception:
-            logger.exception("Failed to load graph %s", graph_file)
+        # Convert to MCP server cache format
+        cache_name = repo.replace("/", "__")
+        cache_entry = {
+            "version": 1,
+            "repoName": cache_name,
+            "commitHash": None,
+            "savedAt": datetime.now(timezone.utc).isoformat(),
+            "raw": result,
+        }
+
+        cache_json = json.dumps(cache_entry)
+        cache_path = f"supermodel-cache/{cache_name}.json"
+        await env.write_file(cache_path, cache_json)
+        logger.info("Loaded graph %s into cache as %s.json", graph_file, cache_name)
 
     async def evaluate(
         self,
