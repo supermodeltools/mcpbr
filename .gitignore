@@ -74,6 +74,8 @@ results/
 *.json
 !config/*.json
 !package.json
+!site/package.json
+!site/_data/site.json
 !.claude-plugin/*.json
 !.claude/*.json
 config.yaml
@@ -88,6 +90,7 @@ logs/
 node_modules/
 *.tgz
 package-lock.json
+!site/package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -101,6 +104,6 @@ docker-build/
 # Datasets cache
 .cache/
 
-# MkDocs build output
-site/
-static/mcpbr-demo.gif
+# Site build output
+site/_site/
+site/node_modules/

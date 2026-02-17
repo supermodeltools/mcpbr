@@ -1,0 +1,132 @@
+---
+layout: base.njk
+title: "CLI Reference"
+description: "mcpbr CLI reference with all commands, options, and examples for running benchmarks, managing configs, and cleaning up resources."
+canonicalPath: "/cli.html"
+permalink: /cli.html
+headExtra: |
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What commands are available in mcpbr?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "mcpbr provides commands: run (execute evaluations), init (generate config), models (list supported models), providers (list LLM providers), harnesses (list agent backends), benchmarks (list available benchmarks), and cleanup (remove orphaned Docker resources)."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I run only the MCP agent without the baseline?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Use the --mcp-only or -M flag: 'mcpbr run -c config.yaml -M'."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I save mcpbr results to a file?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Use --output (-o) for JSON results, --output-yaml (-y) for YAML results, and --report (-r) for a Markdown report."
+        }
+      }
+    ]
+  }
+  </script>
+---
+<h1>CLI Reference</h1>
+<p>mcpbr provides a command-line interface for running evaluations and managing configurations.</p>
+<pre><code>mcpbr --help
+mcpbr run --help</code></pre>
+
+<h2>Commands Overview</h2>
+<table>
+  <tr><th>Command</th><th>Description</th></tr>
+  <tr><td><code>mcpbr run</code></td><td>Run benchmark evaluation with configured MCP server</td></tr>
+  <tr><td><code>mcpbr init</code></td><td>Generate an example configuration file</td></tr>
+  <tr><td><code>mcpbr config</code></td><td>Manage configuration templates</td></tr>
+  <tr><td><code>mcpbr models</code></td><td>List supported models for evaluation</td></tr>
+  <tr><td><code>mcpbr providers</code></td><td>List available model providers</td></tr>
+  <tr><td><code>mcpbr harnesses</code></td><td>List available agent harnesses</td></tr>
+  <tr><td><code>mcpbr benchmarks</code></td><td>List available benchmarks</td></tr>
+  <tr><td><code>mcpbr cleanup</code></td><td>Remove orphaned mcpbr Docker resources</td></tr>
+</table>
+
+<h2>mcpbr run</h2>
+<pre><code>mcpbr run -c CONFIG [OPTIONS]</code></pre>
+<table>
+  <tr><th>Option</th><th>Short</th><th>Description</th></tr>
+  <tr><td><code>--config PATH</code></td><td><code>-c</code></td><td>Path to YAML configuration file (required)</td></tr>
+  <tr><td><code>--model TEXT</code></td><td><code>-m</code></td><td>Override model from config</td></tr>
+  <tr><td><code>--benchmark TEXT</code></td><td><code>-b</code></td><td>Override benchmark from config</td></tr>
+  <tr><td><code>--sample INTEGER</code></td><td><code>-n</code></td><td>Override sample size from config</td></tr>
+  <tr><td><code>--mcp-only</code></td><td><code>-M</code></td><td>Run only MCP evaluation (skip baseline)</td></tr>
+  <tr><td><code>--baseline-only</code></td><td><code>-B</code></td><td>Run only baseline evaluation (skip MCP)</td></tr>
+  <tr><td><code>--output PATH</code></td><td><code>-o</code></td><td>Path to save JSON results</td></tr>
+  <tr><td><code>--report PATH</code></td><td><code>-r</code></td><td>Path to save Markdown report</td></tr>
+  <tr><td><code>--output-yaml PATH</code></td><td><code>-y</code></td><td>Path to save YAML results</td></tr>
+  <tr><td><code>--verbose</code></td><td><code>-v</code></td><td>Verbose output (<code>-vv</code> for detailed)</td></tr>
+  <tr><td><code>--task TEXT</code></td><td><code>-t</code></td><td>Run specific task(s) by instance_id</td></tr>
+  <tr><td><code>--filter-difficulty</code></td><td></td><td>Filter by difficulty (repeatable)</td></tr>
+  <tr><td><code>--filter-category</code></td><td></td><td>Filter by category (repeatable)</td></tr>
+</table>
+
+<h3>Examples</h3>
+<pre><code># Full evaluation with verbose output
+mcpbr run -c config.yaml -v
+
+# MCP-only with specific tasks
+mcpbr run -c config.yaml -M -t django__django-11099
+
+# Override model and sample size
+mcpbr run -c config.yaml -m opus -n 50
+
+# Save all output formats
+mcpbr run -c config.yaml -o results.json -y results.yaml -r report.md</code></pre>
+
+<h2>mcpbr init</h2>
+<pre><code>mcpbr init [OPTIONS]</code></pre>
+<table>
+  <tr><th>Option</th><th>Short</th><th>Description</th></tr>
+  <tr><td><code>--output PATH</code></td><td><code>-o</code></td><td>Path to write config (default: <code>mcpbr.yaml</code>)</td></tr>
+  <tr><td><code>--template TEXT</code></td><td><code>-t</code></td><td>Template ID to use</td></tr>
+  <tr><td><code>--interactive</code></td><td><code>-i</code></td><td>Interactive template selection</td></tr>
+</table>
+
+<h2>mcpbr cleanup</h2>
+<p>Remove orphaned mcpbr Docker resources (containers, volumes, networks).</p>
+<pre><code># Preview what would be removed
+mcpbr cleanup --dry-run
+
+# Remove with confirmation
+mcpbr cleanup
+
+# Force remove all immediately
+mcpbr cleanup -f</code></pre>
+
+<h2>Exit Codes</h2>
+<table>
+  <tr><th>Code</th><th>Meaning</th></tr>
+  <tr><td>0</td><td>Success &mdash; at least one task resolved</td></tr>
+  <tr><td>1</td><td>Fatal error &mdash; config invalid, Docker unavailable, API error</td></tr>
+  <tr><td>2</td><td>No resolutions &mdash; evaluation ran but 0% success</td></tr>
+  <tr><td>3</td><td>Nothing evaluated &mdash; all tasks cached/skipped</td></tr>
+  <tr><td>130</td><td>Interrupted by user (Ctrl+C)</td></tr>
+</table>
+
+<h2>Environment Variables</h2>
+<table>
+  <tr><th>Variable</th><th>Required</th><th>Description</th></tr>
+  <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Yes</td><td>Anthropic API key for Claude models</td></tr>
+</table>
+
+<h2>Next Steps</h2>
+<ul>
+  <li><a href="/configuration.html">Configuration</a> &mdash; Full configuration reference</li>
+  <li><a href="/category/index.html">Benchmarks</a> &mdash; Available benchmarks and how to use them</li>
+  <li><a href="https://github.com/greynewell/mcpbr">GitHub</a> &mdash; Source code, issues, and discussions</li>
+</ul>

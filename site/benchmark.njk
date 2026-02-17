@@ -1,0 +1,72 @@
+---
+pagination:
+  data: benchmarks
+  size: 1
+  alias: benchmark
+permalink: "/{{ benchmark.slug }}.html"
+layout: base.njk
+eleventyComputed:
+  title: "{{ benchmark.title | safe }}"
+  description: "{{ benchmark.description | safe }}"
+  canonicalPath: "/{{ benchmark.slug }}.html"
+  headExtra: |
+    {% if benchmark.benchmark_howto %}
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"{{ benchmark.title | safe }}","description":"{{ benchmark.description | safe }}","tool":{"@type":"SoftwareApplication","name":"mcpbr"},"step":[{"@type":"HowToStep","name":"Install mcpbr","text":"Install mcpbr with pip install mcpbr"},{"@type":"HowToStep","name":"Configure benchmark","text":"Set the benchmark in your YAML config file"},{"@type":"HowToStep","name":"Run evaluation","text":"Execute mcpbr run -c config.yaml"}]}
+    </script>
+    {% endif %}
+    {% if benchmark.faq %}
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{% for item in benchmark.faq %}{% if not loop.first %},{% endif %}{"@type":"Question","name":"{{ item.q | safe }}","acceptedAnswer":{"@type":"Answer","text":"{{ item.a | safe }}"}}{% endfor %}]}
+    </script>
+    {% endif %}
+---
+<nav class="breadcrumb" aria-label="Breadcrumb">
+  <a href="/">Home</a> <span class="breadcrumb-sep">/</span>
+  <a href="/category/index.html">Categories</a> <span class="breadcrumb-sep">/</span>
+  {% if benchmark.category %}
+  <a href="/category/{{ benchmark.category | slugify }}.html">{{ benchmark.category }}</a> <span class="breadcrumb-sep">/</span>
+  {% endif %}
+  <span>{{ benchmark.title }}</span>
+</nav>
+
+<h1>{{ benchmark.title }}</h1>
+
+<div class="benchmark-meta">
+  {% if benchmark.category %}
+  <a class="meta-pill" href="/category/{{ benchmark.category | slugify }}.html">{{ benchmark.category }}</a>
+  {% endif %}
+</div>
+
+<article>
+  {{ benchmark.body | markdown | safe }}
+</article>
+
+{% if benchmark.faq %}
+<div class="faq-section">
+  <h2>Frequently Asked Questions</h2>
+  {% for item in benchmark.faq %}
+  <details class="faq-item">
+    <summary>{{ item.q }}</summary>
+    <p>{{ item.a }}</p>
+  </details>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="author-box">
+  <strong>mcpbr</strong> &mdash; Open-Source Benchmark Runner for MCP Servers
+  <p>mcpbr is developed by <a href="https://greynewell.com/" target="_blank" rel="noopener">Grey Newell</a>, a Computer Science researcher at Georgia Institute of Technology specializing in AI systems and the Model Context Protocol.</p>
+  <div class="author-links">
+    <a href="https://github.com/greynewell/mcpbr" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://pypi.org/project/mcpbr/" target="_blank" rel="noopener">PyPI</a>
+    <a href="https://greynewell.com/" target="_blank" rel="noopener">Author</a>
+  </div>
+</div>
+
+<div class="cta">
+  <div class="cta-title">Benchmark Your MCP Server</div>
+  <p class="cta-body">Get hard numbers comparing tool-assisted vs. baseline agent performance on real tasks.</p>
+  <a href="/installation.html">Get Started</a>
+  <a href="/category/index.html">Browse Benchmarks</a>
+</div>

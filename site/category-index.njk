@@ -1,0 +1,28 @@
+---
+layout: base.njk
+title: "Categories"
+description: "Browse all benchmark categories on mcpbr."
+canonicalPath: "/category/index.html"
+maxWidth: "1100px"
+permalink: /category/index.html
+---
+<div class="taxonomy-header">
+  <h1>All Benchmark Categories</h1>
+  <p>{{ categories.length }} categories</p>
+</div>
+
+<ul class="taxonomy-grid">
+  {% for cat in categories %}
+  <li class="taxonomy-card">
+    <a href="/category/{{ cat.slug }}.html">{{ cat.name }}</a>
+    <span class="taxonomy-count">{{ cat.items.length }}</span>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="cta">
+  <div class="cta-title">Benchmark Your MCP Server</div>
+  <p class="cta-body">Get hard numbers comparing tool-assisted vs. baseline agent performance on real tasks.</p>
+  <a href="/installation.html">Get Started</a>
+  <a href="/category/index.html">Browse Benchmarks</a>
+</div>

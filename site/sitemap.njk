@@ -1,0 +1,19 @@
+---
+permalink: /sitemap.xml
+eleventyExcludeFromCollections: true
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>{{ site.base_url }}/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>
+<url><loc>{{ site.base_url }}/about.html</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
+<url><loc>{{ site.base_url }}/installation.html</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
+<url><loc>{{ site.base_url }}/configuration.html</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
+<url><loc>{{ site.base_url }}/cli.html</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
+<url><loc>{{ site.base_url }}/category/index.html</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>
+{% for cat in categories %}
+<url><loc>{{ site.base_url }}/category/{{ cat.slug }}.html</loc><priority>0.7</priority><changefreq>weekly</changefreq></url>
+{% endfor %}
+{% for b in benchmarks %}
+<url><loc>{{ site.base_url }}/{{ b.slug }}.html</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
+{% endfor %}
+</urlset>

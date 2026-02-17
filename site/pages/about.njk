@@ -1,0 +1,84 @@
+---
+layout: base.njk
+title: "About mcpbr"
+description: "About mcpbr: the story behind the open-source MCP server benchmark runner, why it was built, who maintains it, and where the project is headed."
+canonicalPath: "/about.html"
+permalink: /about.html
+headExtra: |
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Who created mcpbr?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "mcpbr was created by Grey Newell, a software engineer who identified a critical gap in how MCP servers were being evaluated."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why was mcpbr created?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Existing coding benchmarks measured language model capabilities but not whether MCP servers actually improved agent performance. mcpbr was built to fill that gap with controlled, reproducible experiments."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is mcpbr open source?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, mcpbr is fully open-source under the MIT license. It is available on GitHub and published to PyPI, npm, Homebrew, and Conda."
+        }
+      }
+    ]
+  }
+  </script>
+---
+<h1>About mcpbr</h1>
+
+<p>mcpbr (Model Context Protocol Benchmark Runner) is an open-source framework for evaluating whether MCP servers actually improve AI agent performance. It provides controlled, reproducible benchmarking across 25+ benchmarks so developers can stop guessing and start measuring.</p>
+
+<h2>The Origin Story</h2>
+<p>mcpbr was created by <a href="https://greynewell.com">Grey Newell</a> after identifying a critical gap in the MCP ecosystem: <strong>no tool existed to measure whether an MCP server actually made an AI agent better at its job.</strong></p>
+<p>Existing coding benchmarks like SWE-bench measured raw language model capabilities. MCP server developers relied on anecdotal evidence and demo videos. There was no way to answer the fundamental question: <em>does adding this MCP server to an agent improve its performance on real tasks?</em></p>
+<p>mcpbr was built to answer that question with hard data.</p>
+<blockquote><p>"No available tool allowed users to easily measure the performance improvement of introducing their MCP server to an agent."</p><p>&mdash; <a href="https://greynewell.com/blog/why-i-built-mcpbr/">Grey Newell, "Why I Built mcpbr"</a></p></blockquote>
+
+<h2>The Problem mcpbr Solves</h2>
+<p>Before mcpbr, MCP server evaluation looked like this:</p>
+<ul>
+  <li><strong>Manual testing</strong> &mdash; run a few prompts, eyeball the results, declare it "works"</li>
+  <li><strong>Demo-driven development</strong> &mdash; show a polished demo, hope it generalizes</li>
+  <li><strong>Vibes-based benchmarking</strong> &mdash; "it feels faster" with no quantitative evidence</li>
+</ul>
+<p>mcpbr solves all of these by running <strong>controlled experiments</strong>: same model, same tasks, same Docker environment &mdash; the only variable is the MCP server.</p>
+
+<h2>A Key Insight: Test Like APIs, Not Plugins</h2>
+<blockquote><p><strong>MCP servers should be tested like APIs, not like plugins.</strong></p></blockquote>
+<p>Plugins just need to load and not crash. APIs have defined contracts &mdash; expected inputs, outputs, error handling, and performance characteristics. MCP servers sit squarely in API territory.</p>
+
+<h2>Project Vision</h2>
+<h3>Current Capabilities</h3>
+<ul>
+  <li><strong>25+ benchmarks</strong> across software engineering, code generation, math reasoning, security, tool use, and more</li>
+  <li><strong>Multi-provider support</strong> for Anthropic, OpenAI, Google Gemini, and Alibaba Qwen</li>
+  <li><strong>Multiple agent harnesses</strong> including Claude Code, OpenAI Codex, OpenCode, and Gemini</li>
+  <li><strong>Infrastructure flexibility</strong> with local Docker and Azure VM execution</li>
+  <li><strong>Regression detection</strong> with CI/CD integration, threshold-based alerts, and multi-channel notifications</li>
+  <li><strong>Comprehensive analytics</strong> including statistical significance testing, trend analysis, and leaderboards</li>
+</ul>
+
+<h2>Links</h2>
+<table>
+  <tr><th>Resource</th><th>Link</th></tr>
+  <tr><td>GitHub</td><td><a href="https://github.com/greynewell/mcpbr">github.com/greynewell/mcpbr</a></td></tr>
+  <tr><td>PyPI</td><td><a href="https://pypi.org/project/mcpbr/">pypi.org/project/mcpbr</a></td></tr>
+  <tr><td>npm</td><td><a href="https://www.npmjs.com/package/mcpbr-cli">npmjs.com/package/mcpbr-cli</a></td></tr>
+  <tr><td>Blog Post</td><td><a href="https://greynewell.com/blog/why-i-built-mcpbr/">Why I Built mcpbr</a></td></tr>
+  <tr><td>Creator</td><td><a href="https://greynewell.com">greynewell.com</a></td></tr>
+  <tr><td>License</td><td><a href="https://github.com/greynewell/mcpbr/blob/main/LICENSE">MIT</a></td></tr>
+</table>

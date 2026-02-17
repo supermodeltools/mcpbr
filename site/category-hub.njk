@@ -1,0 +1,41 @@
+---
+pagination:
+  data: categories
+  size: 1
+  alias: cat
+permalink: "/category/{{ cat.slug }}.html"
+layout: base.njk
+maxWidth: "1100px"
+eleventyComputed:
+  title: "{{ cat.name }} Benchmarks"
+  description: "Browse {{ cat.items.length }} {{ cat.name | lower }} benchmarks supported by mcpbr."
+  canonicalPath: "/category/{{ cat.slug }}.html"
+---
+<nav class="breadcrumb" aria-label="Breadcrumb">
+  <a href="/">Home</a> <span class="breadcrumb-sep">/</span>
+  <a href="/category/index.html">Categories</a> <span class="breadcrumb-sep">/</span>
+  <span>{{ cat.name }}</span>
+</nav>
+
+<div class="taxonomy-header">
+  <h1>{{ cat.name }} Benchmarks</h1>
+  <p>{{ cat.items.length }} benchmark{{ "s" if cat.items.length != 1 }} in this category</p>
+</div>
+
+<ul class="benchmark-grid">
+  {% for b in cat.items %}
+  <li class="benchmark-card">
+    <a href="/{{ b.slug }}.html">{{ b.title }}</a>
+    {% if b.description %}
+    <div class="desc">{{ b.description }}</div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="cta">
+  <div class="cta-title">Benchmark Your MCP Server</div>
+  <p class="cta-body">Get hard numbers comparing tool-assisted vs. baseline agent performance on real tasks.</p>
+  <a href="/installation.html">Get Started</a>
+  <a href="/category/index.html">Browse Benchmarks</a>
+</div>

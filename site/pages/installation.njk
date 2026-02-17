@@ -1,0 +1,116 @@
+---
+layout: base.njk
+title: "Installation"
+description: "Install mcpbr to benchmark AI agents and MCP servers. Requires Python 3.11+, Docker, and an Anthropic API key."
+canonicalPath: "/installation.html"
+permalink: /installation.html
+headExtra: |
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What are the prerequisites for running mcpbr?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "You need Python 3.11+, Docker running, an ANTHROPIC_API_KEY environment variable, the Claude Code CLI installed, and network access for pulling Docker images and API calls."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I install mcpbr?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Install from PyPI with 'pip install mcpbr', or install from source by cloning the repository and running 'pip install -e .' in the project directory."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does mcpbr work on Apple Silicon Macs?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, mcpbr works on Apple Silicon. The harness automatically uses x86_64 Docker images via emulation."
+        }
+      }
+    ]
+  }
+  </script>
+---
+<h1>Installation</h1>
+
+<pre><code>pip install mcpbr && mcpbr init && mcpbr run -c mcpbr.yaml -n 1 -v</code></pre>
+<p>That's it. For the full setup guide, read on.</p>
+
+<h2>Prerequisites</h2>
+<table>
+  <tr><th>Requirement</th><th>Version</th><th>Notes</th></tr>
+  <tr><td>Python</td><td>3.11+</td><td>Required for mcpbr</td></tr>
+  <tr><td>Docker</td><td>Latest</td><td>Must be running</td></tr>
+  <tr><td>Claude Code CLI</td><td>Latest</td><td>The <code>claude</code> command</td></tr>
+  <tr><td>Network access</td><td>&mdash;</td><td>For Docker images and API calls</td></tr>
+</table>
+
+<h3>API Key</h3>
+<pre><code>export ANTHROPIC_API_KEY="sk-ant-..."</code></pre>
+<p>Sign up at <a href="https://console.anthropic.com/">console.anthropic.com</a> to get your API key.</p>
+
+<h3>Claude Code CLI</h3>
+<pre><code>npm install -g @anthropic-ai/claude-code</code></pre>
+
+<h3>Docker</h3>
+<pre><code>docker info</code></pre>
+<p>Ensure Docker is installed and running.</p>
+
+<h2>Installation Methods</h2>
+
+<h3>From PyPI (Recommended)</h3>
+<pre><code>pip install mcpbr</code></pre>
+
+<h3>From npm</h3>
+<pre><code># Run with npx (no installation)
+npx mcpbr-cli run -c config.yaml
+
+# Or install globally
+npm install -g mcpbr-cli
+mcpbr run -c config.yaml</code></pre>
+
+<h3>From Source</h3>
+<pre><code>git clone https://github.com/greynewell/mcpbr.git
+cd mcpbr
+pip install -e .</code></pre>
+
+<h3>With uv</h3>
+<pre><code>uv pip install mcpbr</code></pre>
+
+<h2>Verify Installation</h2>
+<pre><code># Check mcpbr is installed
+mcpbr --version
+
+# List supported models
+mcpbr models
+
+# Generate a test config
+mcpbr init -o test-config.yaml</code></pre>
+
+<h2>Supported Models</h2>
+<table>
+  <tr><th>Model</th><th>ID</th><th>Context Window</th></tr>
+  <tr><td>Claude Opus 4.5</td><td><code>opus</code></td><td>200,000</td></tr>
+  <tr><td>Claude Sonnet 4.5</td><td><code>sonnet</code></td><td>200,000</td></tr>
+  <tr><td>Claude Haiku 4.5</td><td><code>haiku</code></td><td>200,000</td></tr>
+</table>
+<p>Run <code>mcpbr models</code> to see the full list.</p>
+
+<h2>Apple Silicon Notes</h2>
+<p>On ARM64 Macs (M1/M2/M3/M4), x86_64 Docker images run via emulation. This is automatic and requires no configuration. If you experience issues:</p>
+<pre><code>softwareupdate --install-rosetta</code></pre>
+
+<h2>Next Steps</h2>
+<ul>
+  <li><a href="/configuration.html">Configuration</a> &mdash; Configure your MCP server</li>
+  <li><a href="/cli.html">CLI Reference</a> &mdash; Explore all commands</li>
+  <li><a href="/category/index.html">Benchmarks</a> &mdash; Browse available benchmarks</li>
+  <li><a href="https://github.com/greynewell/mcpbr/tree/main/examples">Examples</a> &mdash; Browse 25+ example configurations</li>
+</ul>

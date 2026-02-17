@@ -1,0 +1,27 @@
+---
+permalink: /llms.txt
+eleventyExcludeFromCollections: true
+---
+# {{ site.name }}
+
+> {{ site.description }}
+
+## Documentation
+- [Installation]({{ site.base_url }}/installation.html)
+- [Configuration]({{ site.base_url }}/configuration.html)
+- [CLI Reference]({{ site.base_url }}/cli.html)
+- [About]({{ site.base_url }}/about.html)
+
+## Benchmark Categories
+{% for cat in categories %}
+### {{ cat.name }}
+{% for b in cat.items %}
+- [{{ b.title }}]({{ site.base_url }}/{{ b.slug }}.html): {{ b.description }}
+{% endfor %}
+{% endfor %}
+
+## Author
+- [{{ site.author }}]({{ site.author_url }})
+
+## Source
+- [GitHub]({{ site.repo_url }})

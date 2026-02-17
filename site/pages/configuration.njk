@@ -1,0 +1,138 @@
+---
+layout: base.njk
+title: "Configuration"
+description: "Configure mcpbr with YAML files to define MCP server settings, benchmark selection, model parameters, and evaluation options."
+canonicalPath: "/configuration.html"
+permalink: /configuration.html
+headExtra: |
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How do I configure mcpbr to use my MCP server?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Configure the mcp_server section in your YAML config file with the command to start your server, args (using {workdir} as placeholder for the task repository path), and any required environment variables."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What configuration parameters are available in mcpbr?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Key parameters include mcp_server (command, args, env), provider (anthropic), model, benchmark, sample_size, timeout_seconds, max_concurrent, and max_iterations."
+        }
+      }
+    ]
+  }
+  </script>
+---
+<h1>Configuration</h1>
+<p>mcpbr uses YAML configuration files to define your MCP server settings and evaluation parameters.</p>
+
+<h2>Quick Start</h2>
+<p>The fastest way to get started is with <a href="https://github.com/greynewell/mcpbr/tree/main/examples">example configurations</a>:</p>
+<pre><code>mcpbr run -c examples/quick-start/getting-started.yaml -v</code></pre>
+<p>Or generate a custom config:</p>
+<pre><code>mcpbr init</code></pre>
+
+<h2>Full Configuration Example</h2>
+<pre><code># MCP Server Configuration
+mcp_server:
+  name: "mcpbr"
+  command: "npx"
+  args:
+    - "-y"
+    - "@modelcontextprotocol/server-filesystem"
+    - "{workdir}"
+  env: {}
+
+# Provider and Harness
+provider: "anthropic"
+agent_harness: "claude-code"
+
+# Model Configuration
+model: "sonnet"
+
+# Benchmark Selection
+benchmark: "swe-bench-verified"
+sample_size: 10
+
+# Execution Parameters
+timeout_seconds: 300
+max_concurrent: 4
+max_iterations: 10
+
+# Docker Configuration
+use_prebuilt_images: true</code></pre>
+
+<h2>MCP Server Section</h2>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>name</code></td><td>string</td><td>Name to register the MCP server as (default: <code>mcpbr</code>)</td></tr>
+  <tr><td><code>command</code></td><td>string</td><td>Executable to run (e.g., <code>npx</code>, <code>uvx</code>, <code>python</code>)</td></tr>
+  <tr><td><code>args</code></td><td>list</td><td>Command arguments. Use <code>{workdir}</code> as placeholder</td></tr>
+  <tr><td><code>env</code></td><td>dict</td><td>Additional environment variables</td></tr>
+</table>
+
+<h3>Environment Variables</h3>
+<pre><code>mcp_server:
+  command: "npx"
+  args: ["-y", "@supermodeltools/mcp-server"]
+  env:
+    SUPERMODEL_API_KEY: "${SUPERMODEL_API_KEY}"
+    LOG_LEVEL: "${LOG_LEVEL:-info}"</code></pre>
+
+<h2>Benchmark Selection</h2>
+<table>
+  <tr><th>Field</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>benchmark</code></td><td><code>swe-bench-verified</code></td><td>Benchmark to run</td></tr>
+  <tr><td><code>sample_size</code></td><td><code>null</code></td><td>Number of tasks (<code>null</code> = full dataset)</td></tr>
+</table>
+
+<h2>Execution Parameters</h2>
+<table>
+  <tr><th>Field</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>timeout_seconds</code></td><td><code>300</code></td><td>Timeout per task in seconds</td></tr>
+  <tr><td><code>max_concurrent</code></td><td><code>4</code></td><td>Maximum parallel task evaluations</td></tr>
+  <tr><td><code>max_iterations</code></td><td><code>10</code></td><td>Maximum agent iterations per task</td></tr>
+  <tr><td><code>thinking_budget</code></td><td><code>null</code></td><td>Extended thinking token budget (1024-31999)</td></tr>
+  <tr><td><code>budget</code></td><td><code>null</code></td><td>Maximum budget in USD</td></tr>
+</table>
+
+<h2>Example Configurations</h2>
+
+<h3>Filesystem Server</h3>
+<pre><code>mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]</code></pre>
+
+<h3>Fast Iteration (Development)</h3>
+<pre><code>mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+
+model: "haiku"
+sample_size: 3
+max_concurrent: 1
+timeout_seconds: 180</code></pre>
+
+<h3>Full Benchmark Run</h3>
+<pre><code>mcp_server:
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "{workdir}"]
+
+model: "sonnet"
+sample_size: null
+max_concurrent: 8
+timeout_seconds: 600</code></pre>
+
+<h2>Next Steps</h2>
+<ul>
+  <li><a href="/cli.html">CLI Reference</a> &mdash; Command options that override config values</li>
+  <li><a href="/category/index.html">Benchmarks</a> &mdash; Available benchmarks and how to use them</li>
+  <li><a href="https://github.com/greynewell/mcpbr/tree/main/examples">Examples</a> &mdash; Browse 25+ example configurations</li>
+</ul>

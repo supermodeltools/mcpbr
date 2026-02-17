@@ -1,0 +1,9 @@
+{
+  "name": "mcpbr",
+  "base_url": "https://mcpbr.org",
+  "description": "Open-source benchmark runner for evaluating MCP servers and AI agents across 25+ benchmarks",
+  "language": "en",
+  "author": "Grey Newell",
+  "author_url": "https://greynewell.com",
+  "repo_url": "https://github.com/greynewell/mcpbr"
+}
