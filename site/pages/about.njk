@@ -37,6 +37,9 @@ headExtra: |
     ]
   }
   </script>
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://mcpbr.org/"},{"@type":"ListItem","position":2,"name":"About"}]}
+  </script>
 ---
 <h1>About mcpbr</h1>
 
@@ -56,6 +59,9 @@ headExtra: |
   <li><strong>Vibes-based benchmarking</strong> &mdash; "it feels faster" with no quantitative evidence</li>
 </ul>
 <p>mcpbr solves all of these by running <strong>controlled experiments</strong>: same model, same tasks, same Docker environment &mdash; the only variable is the MCP server.</p>
+
+<h2>Eval-Driven Development</h2>
+<p>mcpbr embodies <a href="https://evaldriven.org">eval-driven development</a> principles: every MCP server should be evaluated with automated, reproducible benchmarks before shipping. The eval comes first &mdash; before the demo, before the anecdote, before the vibes-based assessment.</p>
 
 <h2>A Key Insight: Test Like APIs, Not Plugins</h2>
 <blockquote><p><strong>MCP servers should be tested like APIs, not like plugins.</strong></p></blockquote>
@@ -80,5 +86,6 @@ headExtra: |
   <tr><td>npm</td><td><a href="https://www.npmjs.com/package/mcpbr-cli">npmjs.com/package/mcpbr-cli</a></td></tr>
   <tr><td>Blog Post</td><td><a href="https://greynewell.com/blog/why-i-built-mcpbr/">Why I Built mcpbr</a></td></tr>
   <tr><td>Creator</td><td><a href="https://greynewell.com">greynewell.com</a></td></tr>
+  <tr><td>SchemaFlux</td><td><a href="https://schemaflux.dev">schemaflux.dev</a></td></tr>
   <tr><td>License</td><td><a href="https://github.com/supermodeltools/mcpbr/blob/main/LICENSE">MIT</a></td></tr>
 </table>

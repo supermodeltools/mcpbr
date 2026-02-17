@@ -10,6 +10,10 @@ eleventyComputed:
   title: "{{ cat.name }} Benchmarks"
   description: "Browse {{ cat.items.length }} {{ cat.name | lower }} benchmarks supported by mcpbr."
   canonicalPath: "/category/{{ cat.slug }}.html"
+  headExtra: |
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://mcpbr.org/"},{"@type":"ListItem","position":2,"name":"Categories","item":"https://mcpbr.org/category/index.html"},{"@type":"ListItem","position":3,"name":"{{ cat.name }}"}]}
+    </script>
 ---
 <nav class="breadcrumb" aria-label="Breadcrumb">
   <a href="/">Home</a> <span class="breadcrumb-sep">/</span>

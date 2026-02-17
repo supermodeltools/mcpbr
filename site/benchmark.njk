@@ -12,7 +12,7 @@ eleventyComputed:
   headExtra: |
     {% if benchmark.benchmark_howto %}
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"HowTo","name":"{{ benchmark.title | safe }}","description":"{{ benchmark.description | safe }}","tool":{"@type":"SoftwareApplication","name":"mcpbr"},"step":[{"@type":"HowToStep","name":"Install mcpbr","text":"Install mcpbr with pip install mcpbr"},{"@type":"HowToStep","name":"Configure benchmark","text":"Set the benchmark in your YAML config file"},{"@type":"HowToStep","name":"Run evaluation","text":"Execute mcpbr run -c config.yaml"}]}
+    {"@context":"https://schema.org","@type":"HowTo","name":"{{ benchmark.title | safe }}","description":"{{ benchmark.description | safe }}","author":{"@type":"Person","@id":"https://greynewell.com/#identity","name":"Grey Newell"},"tool":{"@type":"SoftwareApplication","name":"mcpbr"},"step":[{"@type":"HowToStep","name":"Install mcpbr","text":"Install mcpbr with pip install mcpbr"},{"@type":"HowToStep","name":"Configure benchmark","text":"Set the benchmark in your YAML config file"},{"@type":"HowToStep","name":"Run evaluation","text":"Execute mcpbr run -c config.yaml"}]}
     </script>
     {% endif %}
     {% if benchmark.faq %}
@@ -20,6 +20,9 @@ eleventyComputed:
     {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{% for item in benchmark.faq %}{% if not loop.first %},{% endif %}{"@type":"Question","name":"{{ item.q | safe }}","acceptedAnswer":{"@type":"Answer","text":"{{ item.a | safe }}"}}{% endfor %}]}
     </script>
     {% endif %}
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://mcpbr.org/"},{"@type":"ListItem","position":2,"name":"Categories","item":"https://mcpbr.org/category/index.html"}{% if benchmark.category %},{"@type":"ListItem","position":3,"name":"{{ benchmark.category | safe }}","item":"https://mcpbr.org/category/{{ benchmark.category | slugify }}.html"},{"@type":"ListItem","position":4,"name":"{{ benchmark.title | safe }}"}{% else %},{"@type":"ListItem","position":3,"name":"{{ benchmark.title | safe }}"}{% endif %}]}
+    </script>
 ---
 <nav class="breadcrumb" aria-label="Breadcrumb">
   <a href="/">Home</a> <span class="breadcrumb-sep">/</span>
