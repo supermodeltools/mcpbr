@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **SWE-bench Pro benchmark**: Multi-language benchmark support (Python, Go, TypeScript, JavaScript) with 731 instances across 11 repositories
+  - DockerHub-hosted pre-built images via `dockerhub_tag` field
+  - Language-aware test runners (Go `go test`, TS/JS `npx jest`, Python delegates to existing)
+  - Filter by language or repository substring with `--filter-category`
+- **Preflight check command**: `mcpbr preflight` validates golden patches pass all tests before evaluation
+  - Concurrent validation with configurable parallelism (`--max-concurrent`)
+  - Fail-fast mode (`--fail-fast`) for quick CI checks
+  - Per-instance and aggregate reporting with language breakdown
+- **Case-insensitive test list field access**: `get_test_list_field()` helper supports both SWE-bench (`FAIL_TO_PASS`) and SWE-bench Pro (`fail_to_pass`) conventions
+- **Docker image override support**: `_image_override` task field allows benchmarks to specify custom Docker images
+
 ## [0.14.0] - 2026-02-13
 
 ### Added
