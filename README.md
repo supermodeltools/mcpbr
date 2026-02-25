@@ -57,6 +57,39 @@ mcpbr runs controlled experiments: same model, same tasks, same environment - th
 
 > Read the full origin story: **[Why I Built mcpbr](https://greynewell.com/blog/why-i-built-mcpbr/)** — the problem, the approach, and where the project is headed.
 
+## Research Paper
+
+**[mcpbr: Benchmarking Model Context Protocol Servers on Software Engineering Tasks](https://doi.org/10.5281/zenodo.18627369)**
+*Grey Newell, Georgia Institute of Technology, 2026*
+
+We evaluated a code graph analysis MCP server on all 500 tasks from SWE-bench Verified using Claude Sonnet as the base agent. Key findings:
+
+| Metric | Baseline | MCP-Augmented | Change |
+|--------|----------|---------------|--------|
+| Resolution Rate | 49.8% | 42.4% | -14.9% |
+| Tool Calls | — | — | -42.3% |
+| Tokens Used | — | — | -14.0% |
+| Cost per Task | — | — | -15.2% |
+
+MCP tools alter the agent's exploration strategy, trading general-purpose search for opinionated shortcuts. The effect varies by codebase: the server helped on 1 of 12 repositories and hurt on 10, revealing an efficiency-resolution tradeoff that developers should evaluate before deploying MCP tools in production.
+
+**Methodology:** Paired comparison experiments with Docker-isolated task environments, pinned dependencies, and identical model configurations. The only variable is the presence of MCP tools.
+
+<details>
+<summary>Cite this work</summary>
+
+```bibtex
+@software{newell2025mcpbr,
+  author    = {Newell, Grey},
+  title     = {mcpbr: Benchmarking Model Context Protocol Servers on Software Engineering Tasks},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.18627369},
+  url       = {https://doi.org/10.5281/zenodo.18627369}
+}
+```
+</details>
+
 ## Supported Benchmarks
 
 mcpbr supports 30+ benchmarks across 10 categories through a flexible abstraction layer:
