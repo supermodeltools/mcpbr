@@ -240,11 +240,12 @@ async def run_tests(
 def _normalize_test_id(test: str) -> str:
     """Normalize a test identifier for shell-safe command construction.
 
-    Decodes literal ``\\uXXXX`` escape sequences to actual unicode characters.
-    Some datasets (e.g. SWE-bench Pro) store pytest parametrize IDs with
-    escaped unicode (``\\u2026``) instead of the real character (``…``).
+    Currently a no-op pass-through. SWE-bench Pro test IDs already contain
+    the correct literal sequences (e.g. ``\\u2026`` as 7 ASCII characters)
+    that match what pytest uses in its node IDs. Converting them to actual
+    unicode characters would break matching.
     """
-    return re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), test)
+    return test
 
 
 def _build_test_command(test: str, uses_prebuilt: bool = False, repo: str | None = None) -> str:
