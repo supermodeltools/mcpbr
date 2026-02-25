@@ -12,6 +12,7 @@ from typing import Any
 
 from .docker_env import DockerEnvironmentManager, TaskEnvironment
 from .evaluation import (
+    TestResults,
     _apply_test_patch,
     apply_patch,
     get_test_list_field,
@@ -52,6 +53,83 @@ class PreflightReport:
         if self.total == 0:
             return 0.0
         return (self.passed / self.total) * 100.0
+
+
+async def _run_preflight_tests(
+    env: TaskEnvironment,
+    tests: list[str],
+    language: str,
+    timeout: int = 300,
+    uses_conda: bool = False,
+    workdir: str | None = None,
+    repo: str | None = None,
+) -> TestResults:
+    """Run tests using the appropriate language-specific runner.
+
+    For Python, delegates to the standard run_tests(). For Go, JavaScript,
+    and TypeScript, builds language-specific commands (go test, npx jest).
+
+    Args:
+        env: Task environment.
+        tests: List of test identifiers.
+        language: Programming language.
+        timeout: Timeout per test in seconds.
+        uses_conda: Whether to activate conda environment.
+        workdir: Working directory inside container.
+        repo: Repository name (used for Python test specs).
+
+    Returns:
+        TestResults with pass/fail counts.
+    """
+    if language == "python":
+        return await run_tests(
+            env,
+            tests,
+            timeout=timeout,
+            uses_prebuilt=uses_conda,
+            workdir=workdir,
+            repo=repo,
+        )
+
+    # Non-Python: use language-specific test commands
+    from .benchmarks.swebench_pro import _build_pro_test_command
+
+    if not tests:
+        return TestResults(passed=0, total=0, details=[])
+
+    results = []
+    passed = 0
+
+    for test in tests:
+        test_cmd = _build_pro_test_command(test, language, uses_conda)
+        try:
+            exit_code, stdout, stderr = await env.exec_command(
+                test_cmd, timeout=timeout, workdir=workdir
+            )
+            test_passed = exit_code == 0
+            if test_passed:
+                passed += 1
+            results.append(
+                {
+                    "test": test,
+                    "passed": test_passed,
+                    "exit_code": exit_code,
+                    "output": stdout[:1000] if stdout else "",
+                    "error": stderr[:1000] if stderr else "",
+                }
+            )
+        except TimeoutError:
+            results.append(
+                {
+                    "test": test,
+                    "passed": False,
+                    "exit_code": -1,
+                    "output": "",
+                    "error": "Test timed out",
+                }
+            )
+
+    return TestResults(passed=passed, total=len(tests), details=results)
 
 
 async def _check_single_instance(
@@ -137,21 +215,23 @@ async def _check_single_instance(
         uses_conda = env.uses_prebuilt and not task.get("dockerhub_tag")
 
         # Run fail_to_pass tests (all must PASS with golden patch)
-        ftp_results = await run_tests(
+        ftp_results = await _run_preflight_tests(
             env,
             fail_to_pass_tests,
+            language=language,
             timeout=timeout,
-            uses_prebuilt=uses_conda,
+            uses_conda=uses_conda,
             workdir=eval_workdir,
             repo=task.get("repo"),
         )
 
         # Run pass_to_pass tests (all must still PASS)
-        ptp_results = await run_tests(
+        ptp_results = await _run_preflight_tests(
             env,
             pass_to_pass_tests[:10],
+            language=language,
             timeout=timeout,
-            uses_prebuilt=uses_conda,
+            uses_conda=uses_conda,
             workdir=eval_workdir,
             repo=task.get("repo"),
         )

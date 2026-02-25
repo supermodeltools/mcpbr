@@ -304,7 +304,9 @@ class SWEBenchProBenchmark:
         passed = 0
 
         for test in tests:
-            test_cmd = _build_pro_test_command(test, language, env.uses_prebuilt)
+            # SWE-bench Pro images don't use conda — never prepend conda activation
+            # for non-Python languages (uses_prebuilt=False disables it)
+            test_cmd = _build_pro_test_command(test, language, uses_prebuilt=False)
             try:
                 exit_code, stdout, stderr = await env.exec_command(
                     test_cmd, timeout=timeout, workdir=workdir

@@ -237,7 +237,7 @@ class TestSWEBenchProFilterCategory:
         assert tasks[0]["instance_id"] == "t1"
 
     def test_pro_languages_set(self) -> None:
-        assert {"python", "go", "typescript", "javascript"} == PRO_LANGUAGES
+        assert {"python", "go", "typescript", "javascript", "ts", "js"} == PRO_LANGUAGES
 
 
 class TestSWEBenchProLoadTasks:
