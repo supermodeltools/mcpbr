@@ -398,10 +398,15 @@ class SWEBenchProBenchmark:
 def _build_pro_test_command(test: str, language: str, uses_prebuilt: bool = False) -> str:
     """Build a language-specific test command for SWE-bench Pro.
 
+    Test ID formats by language:
+        Go: "TestFoo", "TestFoo/subtest", "TestFoo/#00"
+        JS/TS: "file.js | test description", "file.ts | suite name"
+        Python: "tests/test_foo.py::TestClass::test_method"
+
     Args:
         test: Test identifier.
-        language: Programming language (python, go, typescript, javascript).
-        uses_prebuilt: Whether a pre-built image is being used.
+        language: Programming language (python, go, typescript, javascript, js, ts).
+        uses_prebuilt: Whether a pre-built image is being used (adds conda activation).
 
     Returns:
         Shell command string to run the test.
@@ -421,18 +426,33 @@ def _build_pro_test_command(test: str, language: str, uses_prebuilt: bool = Fals
         activate = ""
 
     if language == "go":
-        # Go test identifiers can be package paths or test function names
-        if "/" in test or test.startswith("."):
-            # Package path: go test -v ./path/to/package
-            return f"{activate}go test -v -count=1 {shlex.quote(test)} 2>&1"
+        # Go test IDs are always function names, optionally with subtests via /
+        # e.g., "TestFoo", "TestFoo/subtest", "TestFoo/#00", "TestFoo//api/v1"
+        # Always use -run with the top-level test name and ./... to search all packages
+        if "/" in test:
+            # Extract top-level test name (before first /)
+            top_level = test.split("/", 1)[0]
+            return f"{activate}go test -v -count=1 -run {shlex.quote(top_level)} ./... 2>&1"
         else:
-            # Test function name: go test -v -run TestName ./...
             return f"{activate}go test -v -count=1 -run {shlex.quote(test)} ./... 2>&1"
 
-    if language in ("typescript", "javascript"):
-        # Jest-style test identifiers
-        if "/" in test or test.endswith((".ts", ".js", ".tsx", ".jsx")):
-            # File path
+    if language in ("typescript", "javascript", "ts", "js"):
+        # SWE-bench Pro format: "file_path | test description"
+        if " | " in test:
+            parts = test.split(" | ", 1)
+            file_path = parts[0].strip()
+            test_name = parts[1].strip()
+            if test_name and test_name != "test suite":
+                # Run specific test file with test name filter
+                return (
+                    f"{activate}npx jest {shlex.quote(file_path)}"
+                    f" -t {shlex.quote(test_name)} --verbose --no-cache 2>&1"
+                )
+            else:
+                # "test suite" means run the whole file
+                return f"{activate}npx jest {shlex.quote(file_path)} --verbose --no-cache 2>&1"
+        elif "/" in test or test.endswith((".ts", ".js", ".tsx", ".jsx")):
+            # Plain file path
             return f"{activate}npx jest {shlex.quote(test)} --verbose --no-cache 2>&1"
         else:
             # Test name pattern

@@ -98,17 +98,20 @@ class TestBuildProTestCommand:
         cmd = _build_pro_test_command("tests/test_foo.py::test_bar", "python")
         assert "pytest" in cmd or "test_foo" in cmd
 
-    def test_go_package_path(self) -> None:
-        cmd = _build_pro_test_command("./pkg/router", "go")
-        assert "go test" in cmd
-        assert "./pkg/router" in cmd
-        assert "-v" in cmd
-
     def test_go_function_name(self) -> None:
         cmd = _build_pro_test_command("TestRouteMatching", "go")
         assert "go test" in cmd
         assert "-run" in cmd
         assert "TestRouteMatching" in cmd
+        assert "./..." in cmd
+
+    def test_go_subtest(self) -> None:
+        """Go subtests (TestFoo/#00, TestFoo/subtest) use top-level name with -run."""
+        cmd = _build_pro_test_command("TestParseResourcePath/#00", "go")
+        assert "go test" in cmd
+        assert "-run" in cmd
+        assert "TestParseResourcePath" in cmd
+        assert "./..." in cmd
 
     def test_typescript_file(self) -> None:
         cmd = _build_pro_test_command("src/__tests__/parser.test.ts", "typescript")
@@ -128,7 +131,21 @@ class TestBuildProTestCommand:
     def test_javascript_pattern(self) -> None:
         cmd = _build_pro_test_command("handles edge case", "javascript")
         assert "npx jest" in cmd
+
+    def test_js_pipe_format(self) -> None:
+        """SWE-bench Pro JS format: 'file.js | test description'."""
+        cmd = _build_pro_test_command("test/database.js | Test database key methods", "js")
+        assert "npx jest" in cmd
+        assert "test/database.js" in cmd
         assert "-t" in cmd
+        assert "Test database key methods" in cmd
+
+    def test_ts_test_suite_format(self) -> None:
+        """TS 'test suite' format runs the whole file without -t filter."""
+        cmd = _build_pro_test_command("test/tests/LoginFacadeTest.js | test suite", "ts")
+        assert "npx jest" in cmd
+        assert "test/tests/LoginFacadeTest.js" in cmd
+        assert "-t" not in cmd
 
     def test_prebuilt_conda_activation(self) -> None:
         cmd = _build_pro_test_command("TestFoo", "go", uses_prebuilt=True)
