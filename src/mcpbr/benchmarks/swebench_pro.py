@@ -26,7 +26,13 @@ from ..evaluation import (
 from .base import BenchmarkTask
 
 # Supported languages in SWE-bench Pro
-PRO_LANGUAGES = {"python", "go", "typescript", "javascript"}
+PRO_LANGUAGES = {"python", "go", "typescript", "javascript", "ts", "js"}
+
+# Aliases: user-friendly names → dataset values
+_LANGUAGE_ALIASES: dict[str, str] = {
+    "javascript": "js",
+    "typescript": "ts",
+}
 
 # DockerHub registry prefix for SWE-bench Pro pre-built images
 SWEBENCH_PRO_IMAGE_PREFIX = "jefzda/sweap-images"
@@ -94,7 +100,9 @@ class SWEBenchProBenchmark:
                     cat_lower = category.lower()
                     # If the category is a known language, match by language only
                     if cat_lower in PRO_LANGUAGES:
-                        if cat_lower == language:
+                        # Resolve aliases (e.g., "javascript" -> "js")
+                        resolved = _LANGUAGE_ALIASES.get(cat_lower, cat_lower)
+                        if resolved == language:
                             filtered.append(task)
                             break
                     elif cat_lower in repo.lower():
