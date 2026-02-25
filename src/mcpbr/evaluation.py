@@ -3,6 +3,8 @@
 import ast
 import contextlib
 import json
+import re
+import shlex
 from dataclasses import dataclass
 from typing import Any
 
@@ -235,6 +237,16 @@ async def run_tests(
     )
 
 
+def _normalize_test_id(test: str) -> str:
+    """Normalize a test identifier for shell-safe command construction.
+
+    Decodes literal ``\\uXXXX`` escape sequences to actual unicode characters.
+    Some datasets (e.g. SWE-bench Pro) store pytest parametrize IDs with
+    escaped unicode (``\\u2026``) instead of the real character (``…``).
+    """
+    return re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), test)
+
+
 def _build_test_command(test: str, uses_prebuilt: bool = False, repo: str | None = None) -> str:
     """Build a test command for the given test identifier.
 
@@ -249,9 +261,9 @@ def _build_test_command(test: str, uses_prebuilt: bool = False, repo: str | None
     Returns:
         Shell command string to run the test.
     """
-    import re
-
     from .swebench_test_specs import get_repo_test_command
+
+    test = _normalize_test_id(test)
 
     # Pre-built SWE-bench images use a conda environment called 'testbed'
     if uses_prebuilt:
@@ -289,9 +301,9 @@ def _build_test_command(test: str, uses_prebuilt: bool = False, repo: str | None
         test_module = ".".join(test.split(".")[:2])  # Extract test_utils.tests
         return f"{activate}cd /testbed/tests && ./runtests.py {test_module}"
     elif "::" in test or test.endswith(".py"):
-        return f"{activate}python -m pytest '{test}' -xvs 2>&1"
+        return f"{activate}python -m pytest {shlex.quote(test)} -xvs 2>&1"
     else:
-        return f"{activate}python -m pytest -k '{test}' -xvs 2>&1"
+        return f"{activate}python -m pytest -k {shlex.quote(test)} -xvs 2>&1"
 
 
 async def _apply_test_patch(

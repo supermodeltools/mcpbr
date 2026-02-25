@@ -396,10 +396,14 @@ def _build_pro_test_command(test: str, language: str, uses_prebuilt: bool = Fals
     Returns:
         Shell command string to run the test.
     """
-    if language == "python":
-        from ..evaluation import _build_test_command
+    import shlex
 
+    from ..evaluation import _build_test_command, _normalize_test_id
+
+    if language == "python":
         return _build_test_command(test, uses_prebuilt)
+
+    test = _normalize_test_id(test)
 
     if uses_prebuilt:
         activate = "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
@@ -410,19 +414,19 @@ def _build_pro_test_command(test: str, language: str, uses_prebuilt: bool = Fals
         # Go test identifiers can be package paths or test function names
         if "/" in test or test.startswith("."):
             # Package path: go test -v ./path/to/package
-            return f"{activate}go test -v -count=1 {test} 2>&1"
+            return f"{activate}go test -v -count=1 {shlex.quote(test)} 2>&1"
         else:
             # Test function name: go test -v -run TestName ./...
-            return f"{activate}go test -v -count=1 -run '{test}' ./... 2>&1"
+            return f"{activate}go test -v -count=1 -run {shlex.quote(test)} ./... 2>&1"
 
     if language in ("typescript", "javascript"):
         # Jest-style test identifiers
         if "/" in test or test.endswith((".ts", ".js", ".tsx", ".jsx")):
             # File path
-            return f"{activate}npx jest {test} --verbose --no-cache 2>&1"
+            return f"{activate}npx jest {shlex.quote(test)} --verbose --no-cache 2>&1"
         else:
             # Test name pattern
-            return f"{activate}npx jest -t '{test}' --verbose --no-cache 2>&1"
+            return f"{activate}npx jest -t {shlex.quote(test)} --verbose --no-cache 2>&1"
 
     # Fallback: try running as-is
     return f"{activate}{test} 2>&1"
