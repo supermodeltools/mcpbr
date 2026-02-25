@@ -132,20 +132,43 @@ class TestBuildProTestCommand:
         cmd = _build_pro_test_command("handles edge case", "javascript")
         assert "npx jest" in cmd
 
-    def test_js_pipe_format(self) -> None:
-        """SWE-bench Pro JS format: 'file.js | test description'."""
-        cmd = _build_pro_test_command("test/database.js | Test database key methods", "js")
+    def test_js_pipe_format_jest(self) -> None:
+        """SWE-bench Pro JS format with jest runner."""
+        cmd = _build_pro_test_command(
+            "test/database.js | Test database key methods", "js", js_runner="jest"
+        )
         assert "npx jest" in cmd
         assert "test/database.js" in cmd
         assert "-t" in cmd
         assert "Test database key methods" in cmd
 
+    def test_js_pipe_format_mocha(self) -> None:
+        """SWE-bench Pro JS format with mocha runner."""
+        cmd = _build_pro_test_command(
+            "test/database.js | Test database key methods", "js", js_runner="mocha"
+        )
+        assert "npx mocha" in cmd
+        assert "test/database.js" in cmd
+        assert "--grep" in cmd
+        assert "Test database key methods" in cmd
+
     def test_ts_test_suite_format(self) -> None:
         """TS 'test suite' format runs the whole file without -t filter."""
-        cmd = _build_pro_test_command("test/tests/LoginFacadeTest.js | test suite", "ts")
+        cmd = _build_pro_test_command(
+            "test/tests/LoginFacadeTest.js | test suite", "ts", js_runner="jest"
+        )
         assert "npx jest" in cmd
         assert "test/tests/LoginFacadeTest.js" in cmd
         assert "-t" not in cmd
+
+    def test_mocha_test_suite_format(self) -> None:
+        """Mocha 'test suite' runs whole file without --grep."""
+        cmd = _build_pro_test_command(
+            "test/tests/LoginFacadeTest.js | test suite", "js", js_runner="mocha"
+        )
+        assert "npx mocha" in cmd
+        assert "test/tests/LoginFacadeTest.js" in cmd
+        assert "--grep" not in cmd
 
     def test_prebuilt_conda_activation(self) -> None:
         cmd = _build_pro_test_command("TestFoo", "go", uses_prebuilt=True)

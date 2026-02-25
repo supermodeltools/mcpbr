@@ -92,16 +92,21 @@ async def _run_preflight_tests(
         )
 
     # Non-Python: use language-specific test commands
-    from .benchmarks.swebench_pro import _build_pro_test_command
+    from .benchmarks.swebench_pro import _build_pro_test_command, _detect_js_runner
 
     if not tests:
         return TestResults(passed=0, total=0, details=[])
+
+    # Detect JS/TS test runner once per instance
+    js_runner = "jest"
+    if language in ("typescript", "javascript", "ts", "js"):
+        js_runner = await _detect_js_runner(env, workdir=workdir)
 
     results = []
     passed = 0
 
     for test in tests:
-        test_cmd = _build_pro_test_command(test, language, uses_conda)
+        test_cmd = _build_pro_test_command(test, language, uses_conda, js_runner=js_runner)
         try:
             exit_code, stdout, stderr = await env.exec_command(
                 test_cmd, timeout=timeout, workdir=workdir

@@ -11,6 +11,7 @@ Key differences from SWE-bench:
 - Language metadata per task (repo_language field)
 """
 
+import logging
 from typing import Any
 
 from datasets import load_dataset
@@ -24,6 +25,8 @@ from ..evaluation import (
     run_tests,
 )
 from .base import BenchmarkTask
+
+logger = logging.getLogger(__name__)
 
 # Supported languages in SWE-bench Pro
 PRO_LANGUAGES = {"python", "go", "typescript", "javascript", "ts", "js"}
@@ -300,13 +303,20 @@ class SWEBenchProBenchmark:
         if not tests:
             return TestResults(passed=0, total=0, details=[])
 
+        # Detect JS/TS test runner once (avoids repeated detection per test)
+        js_runner = "jest"
+        if language in ("typescript", "javascript", "ts", "js"):
+            js_runner = await _detect_js_runner(env, workdir=workdir)
+
         results = []
         passed = 0
 
         for test in tests:
             # SWE-bench Pro images don't use conda — never prepend conda activation
             # for non-Python languages (uses_prebuilt=False disables it)
-            test_cmd = _build_pro_test_command(test, language, uses_prebuilt=False)
+            test_cmd = _build_pro_test_command(
+                test, language, uses_prebuilt=False, js_runner=js_runner
+            )
             try:
                 exit_code, stdout, stderr = await env.exec_command(
                     test_cmd, timeout=timeout, workdir=workdir
@@ -395,7 +405,43 @@ class SWEBenchProBenchmark:
         return None
 
 
-def _build_pro_test_command(test: str, language: str, uses_prebuilt: bool = False) -> str:
+async def _detect_js_runner(env: "TaskEnvironment", workdir: str | None = None) -> str:
+    """Detect the JavaScript/TypeScript test runner installed in a container.
+
+    Checks for common test runners in order of preference:
+    jest, mocha, vitest. Falls back to "jest" if none detected.
+
+    Args:
+        env: Task environment with exec_command.
+        workdir: Working directory inside container.
+
+    Returns:
+        Runner name: "jest", "mocha", or "vitest".
+    """
+    # Check for runner binaries in node_modules
+    detect_cmd = (
+        "if [ -f node_modules/.bin/jest ]; then echo jest; "
+        "elif [ -f node_modules/.bin/mocha ]; then echo mocha; "
+        "elif [ -f node_modules/.bin/vitest ]; then echo vitest; "
+        "else echo jest; fi"
+    )
+    try:
+        exit_code, stdout, _ = await env.exec_command(detect_cmd, timeout=10, workdir=workdir)
+        if exit_code == 0 and stdout:
+            runner = stdout.strip().split("\n")[-1].strip()
+            if runner in ("jest", "mocha", "vitest"):
+                return runner
+    except Exception:
+        logger.debug("Failed to detect JS test runner, defaulting to jest")
+    return "jest"
+
+
+def _build_pro_test_command(
+    test: str,
+    language: str,
+    uses_prebuilt: bool = False,
+    js_runner: str = "jest",
+) -> str:
     """Build a language-specific test command for SWE-bench Pro.
 
     Test ID formats by language:
@@ -407,6 +453,7 @@ def _build_pro_test_command(test: str, language: str, uses_prebuilt: bool = Fals
         test: Test identifier.
         language: Programming language (python, go, typescript, javascript, js, ts).
         uses_prebuilt: Whether a pre-built image is being used (adds conda activation).
+        js_runner: JavaScript test runner ("jest", "mocha", or "vitest").
 
     Returns:
         Shell command string to run the test.
@@ -437,26 +484,62 @@ def _build_pro_test_command(test: str, language: str, uses_prebuilt: bool = Fals
             return f"{activate}go test -v -count=1 -run {shlex.quote(test)} ./... 2>&1"
 
     if language in ("typescript", "javascript", "ts", "js"):
-        # SWE-bench Pro format: "file_path | test description"
-        if " | " in test:
-            parts = test.split(" | ", 1)
-            file_path = parts[0].strip()
-            test_name = parts[1].strip()
-            if test_name and test_name != "test suite":
-                # Run specific test file with test name filter
-                return (
-                    f"{activate}npx jest {shlex.quote(file_path)}"
-                    f" -t {shlex.quote(test_name)} --verbose --no-cache 2>&1"
-                )
-            else:
-                # "test suite" means run the whole file
-                return f"{activate}npx jest {shlex.quote(file_path)} --verbose --no-cache 2>&1"
-        elif "/" in test or test.endswith((".ts", ".js", ".tsx", ".jsx")):
-            # Plain file path
-            return f"{activate}npx jest {shlex.quote(test)} --verbose --no-cache 2>&1"
-        else:
-            # Test name pattern
-            return f"{activate}npx jest -t {shlex.quote(test)} --verbose --no-cache 2>&1"
+        return _build_js_test_command(test, js_runner, activate)
 
     # Fallback: try running as-is
     return f"{activate}{test} 2>&1"
+
+
+def _build_js_test_command(test: str, runner: str, activate: str = "") -> str:
+    """Build a JS/TS test command for the detected runner.
+
+    Args:
+        test: Test identifier in "file | description" format.
+        runner: Test runner name ("jest", "mocha", or "vitest").
+        activate: Optional conda activation prefix.
+
+    Returns:
+        Shell command string.
+    """
+    import shlex
+
+    # Parse "file | description" format
+    file_path = ""
+    test_name = ""
+    if " | " in test:
+        parts = test.split(" | ", 1)
+        file_path = parts[0].strip()
+        test_name = parts[1].strip()
+    elif "/" in test or test.endswith((".ts", ".js", ".tsx", ".jsx")):
+        file_path = test
+    else:
+        test_name = test
+
+    if runner == "mocha":
+        # mocha: npx mocha <file> --grep "pattern"
+        cmd = f"{activate}npx mocha"
+        if file_path:
+            cmd += f" {shlex.quote(file_path)}"
+        if test_name and test_name != "test suite":
+            cmd += f" --grep {shlex.quote(test_name)}"
+        cmd += " --timeout 30000 2>&1"
+        return cmd
+
+    if runner == "vitest":
+        # vitest: npx vitest run <file> -t "pattern"
+        cmd = f"{activate}npx vitest run"
+        if file_path:
+            cmd += f" {shlex.quote(file_path)}"
+        if test_name and test_name != "test suite":
+            cmd += f" -t {shlex.quote(test_name)}"
+        cmd += " 2>&1"
+        return cmd
+
+    # Default: jest
+    cmd = f"{activate}npx jest"
+    if file_path:
+        cmd += f" {shlex.quote(file_path)}"
+    if test_name and test_name != "test suite":
+        cmd += f" -t {shlex.quote(test_name)}"
+    cmd += " --verbose --no-cache 2>&1"
+    return cmd
