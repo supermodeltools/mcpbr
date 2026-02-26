@@ -133,6 +133,53 @@ def _get_instance_scripts(repo_path: Path, instance_id: str) -> tuple[str, str]:
     return run_script_path.read_text(), parser_path.read_text()
 
 
+async def _run_before_repo_set_cmd(
+    env: TaskEnvironment,
+    task: dict[str, Any],
+    workdir: str | None = None,
+) -> None:
+    """Run the before_repo_set_cmd from the dataset after patch application.
+
+    The official SWE-bench Pro evaluation harness runs the last line of
+    before_repo_set_cmd between applying the patch and running tests.
+    This typically restores specific test files from the fix commit, e.g.:
+        git checkout <commit> -- test/tests/SomeTest.ts
+
+    The earlier lines (git reset, git clean, git checkout <base>) are
+    redundant because our apply_patch() already handles that.
+
+    Args:
+        env: Task environment.
+        task: SWE-bench Pro task dictionary.
+        workdir: Working directory inside container.
+    """
+    before_cmd = task.get("before_repo_set_cmd", "")
+    if not before_cmd or not before_cmd.strip():
+        return
+
+    # The official harness only uses the last line
+    last_line = before_cmd.strip().split("\n")[-1].strip()
+    if not last_line:
+        return
+
+    # Skip if it's just a git reset/clean/checkout <hash> (already done by apply_patch)
+    # We only care about "git checkout <hash> -- <file>" which restores specific files
+    if last_line.startswith("git checkout") and " -- " not in last_line:
+        return
+    if last_line.startswith(("git reset", "git clean")):
+        return
+
+    logger.debug("Running before_repo_set_cmd for %s: %s", task.get("instance_id"), last_line)
+    try:
+        await env.exec_command(last_line, timeout=60, workdir=workdir)
+    except Exception:
+        logger.warning(
+            "before_repo_set_cmd failed for %s: %s",
+            task.get("instance_id"),
+            last_line,
+        )
+
+
 async def _run_official_tests(
     env: TaskEnvironment,
     task: dict[str, Any],
@@ -564,6 +611,11 @@ class SWEBenchProBenchmark:
         test_patch = task.get("test_patch", "")
         if test_patch:
             await _apply_test_patch(env, test_patch, workdir=eval_workdir)
+
+        # Run before_repo_set_cmd (last line only, matching official harness).
+        # This typically restores specific test files from the fix commit,
+        # e.g., "git checkout <commit> -- test/file.ts"
+        await _run_before_repo_set_cmd(env, task, workdir=eval_workdir)
 
         # Reinstall package so patched code is active (SWE-bench Pro images
         # install into site-packages, not editable mode)

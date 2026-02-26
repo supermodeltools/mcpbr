@@ -15,6 +15,7 @@ from .benchmarks.swebench_pro import (
     _ensure_run_scripts_repo,
     _get_instance_scripts,
     _match_test_results,
+    _run_before_repo_set_cmd,
     _run_official_tests,
 )
 from .docker_env import DockerEnvironmentManager, TaskEnvironment
@@ -147,6 +148,9 @@ async def _check_single_instance(
         test_patch = task.get("test_patch", "")
         if test_patch:
             await _apply_test_patch(env, test_patch, workdir=eval_workdir)
+
+        # Run before_repo_set_cmd (restores specific test files from fix commit)
+        await _run_before_repo_set_cmd(env, task, workdir=eval_workdir)
 
         # Reinstall package in editable mode so patched code is used.
         # SWE-bench Pro images install the package into site-packages;
