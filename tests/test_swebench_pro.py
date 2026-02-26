@@ -170,6 +170,35 @@ class TestBuildProTestCommand:
         assert "test/tests/LoginFacadeTest.js" in cmd
         assert "--grep" not in cmd
 
+    def test_ospec_runner_file(self) -> None:
+        """ospec runs test files directly with node."""
+        cmd = _build_pro_test_command(
+            "test/tests/LoginFacadeTest.js | test suite", "ts", js_runner="ospec"
+        )
+        assert "node" in cmd
+        assert "test/tests/LoginFacadeTest.js" in cmd
+
+    def test_ava_runner(self) -> None:
+        """ava runner uses -m for test name matching."""
+        cmd = _build_pro_test_command("test/database.js | Test db methods", "js", js_runner="ava")
+        assert "npx ava" in cmd
+        assert "test/database.js" in cmd
+        assert "-m" in cmd
+        assert "Test db methods" in cmd
+
+    def test_npm_fallback_with_file(self) -> None:
+        """npm fallback passes file via -- to npm test."""
+        cmd = _build_pro_test_command(
+            "test/tests/LoginFacadeTest.js | test suite", "ts", js_runner="npm"
+        )
+        assert "npm test" in cmd
+        assert "test/tests/LoginFacadeTest.js" in cmd
+
+    def test_npm_fallback_no_file(self) -> None:
+        """npm fallback with no file runs plain npm test."""
+        cmd = _build_pro_test_command("should work", "js", js_runner="npm")
+        assert "npm test" in cmd
+
     def test_prebuilt_conda_activation(self) -> None:
         cmd = _build_pro_test_command("TestFoo", "go", uses_prebuilt=True)
         assert "conda activate testbed" in cmd

@@ -405,35 +405,59 @@ class SWEBenchProBenchmark:
         return None
 
 
+_KNOWN_RUNNERS = ("jest", "mocha", "vitest", "ospec", "ava")
+
+
 async def _detect_js_runner(env: "TaskEnvironment", workdir: str | None = None) -> str:
     """Detect the JavaScript/TypeScript test runner installed in a container.
 
-    Checks for common test runners in order of preference:
-    jest, mocha, vitest. Falls back to "jest" if none detected.
+    Detection strategy:
+    1. Check node_modules/.bin/ for known runner binaries
+    2. Parse package.json scripts.test for runner hints
+    3. Fall back to "npm" (runs npm test) if nothing is detected
 
     Args:
         env: Task environment with exec_command.
         workdir: Working directory inside container.
 
     Returns:
-        Runner name: "jest", "mocha", or "vitest".
+        Runner name: "jest", "mocha", "vitest", "ospec", "ava", or "npm".
     """
     # Check for runner binaries in node_modules
     detect_cmd = (
         "if [ -f node_modules/.bin/jest ]; then echo jest; "
         "elif [ -f node_modules/.bin/mocha ]; then echo mocha; "
         "elif [ -f node_modules/.bin/vitest ]; then echo vitest; "
-        "else echo jest; fi"
+        "elif [ -f node_modules/.bin/ospec ]; then echo ospec; "
+        "elif [ -f node_modules/.bin/ava ]; then echo ava; "
+        "else echo none; fi"
     )
     try:
         exit_code, stdout, _ = await env.exec_command(detect_cmd, timeout=10, workdir=workdir)
         if exit_code == 0 and stdout:
             runner = stdout.strip().split("\n")[-1].strip()
-            if runner in ("jest", "mocha", "vitest"):
+            if runner in _KNOWN_RUNNERS:
                 return runner
     except Exception:
-        logger.debug("Failed to detect JS test runner, defaulting to jest")
-    return "jest"
+        logger.debug("Failed to detect JS test runner from node_modules")
+
+    # Fallback: parse package.json scripts.test for runner hints
+    pkg_cmd = (
+        "node -e \"try{const p=require('./package.json');"
+        "console.log(p.scripts&&p.scripts.test||'')}catch(e){console.log('')}\" 2>/dev/null"
+    )
+    try:
+        exit_code, stdout, _ = await env.exec_command(pkg_cmd, timeout=10, workdir=workdir)
+        if exit_code == 0 and stdout:
+            test_script = stdout.strip().split("\n")[-1].strip().lower()
+            for runner in _KNOWN_RUNNERS:
+                if runner in test_script:
+                    return runner
+    except Exception:
+        logger.debug("Failed to detect JS test runner from package.json")
+
+    # Ultimate fallback: use npm test
+    return "npm"
 
 
 def _build_pro_test_command(
@@ -495,7 +519,7 @@ def _build_js_test_command(test: str, runner: str, activate: str = "") -> str:
 
     Args:
         test: Test identifier in "file | description" format.
-        runner: Test runner name ("jest", "mocha", or "vitest").
+        runner: Test runner name ("jest", "mocha", "vitest", "ospec", "ava", "npm").
         activate: Optional conda activation prefix.
 
     Returns:
@@ -516,7 +540,6 @@ def _build_js_test_command(test: str, runner: str, activate: str = "") -> str:
         test_name = test
 
     if runner == "mocha":
-        # mocha: npx mocha <file> --grep "pattern"
         cmd = f"{activate}npx mocha"
         if file_path:
             cmd += f" {shlex.quote(file_path)}"
@@ -526,13 +549,39 @@ def _build_js_test_command(test: str, runner: str, activate: str = "") -> str:
         return cmd
 
     if runner == "vitest":
-        # vitest: npx vitest run <file> -t "pattern"
         cmd = f"{activate}npx vitest run"
         if file_path:
             cmd += f" {shlex.quote(file_path)}"
         if test_name and test_name != "test suite":
             cmd += f" -t {shlex.quote(test_name)}"
         cmd += " 2>&1"
+        return cmd
+
+    if runner == "ospec":
+        # ospec: run file directly with node (ospec tests are self-executing)
+        if file_path:
+            cmd = f"{activate}node {shlex.quote(file_path)} 2>&1"
+        else:
+            cmd = f"{activate}npx ospec 2>&1"
+        return cmd
+
+    if runner == "ava":
+        cmd = f"{activate}npx ava"
+        if file_path:
+            cmd += f" {shlex.quote(file_path)}"
+        if test_name and test_name != "test suite":
+            cmd += f" -m {shlex.quote(test_name)}"
+        cmd += " 2>&1"
+        return cmd
+
+    if runner == "npm":
+        # Fallback: use npm test, passing file as argument if possible
+        if file_path:
+            cmd = f"{activate}npm test -- {shlex.quote(file_path)} 2>&1"
+        elif test_name:
+            cmd = f"{activate}npm test 2>&1"
+        else:
+            cmd = f"{activate}npm test 2>&1"
         return cmd
 
     # Default: jest

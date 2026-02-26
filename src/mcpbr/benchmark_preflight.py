@@ -7,6 +7,7 @@ early, ensuring evaluation infrastructure works correctly.
 
 import asyncio
 import logging
+import subprocess
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -135,6 +136,27 @@ async def _run_preflight_tests(
             )
 
     return TestResults(passed=passed, total=len(tests), details=results)
+
+
+async def _prune_docker_images() -> None:
+    """Remove unused Docker images to free disk space.
+
+    Called after each preflight instance to prevent disk exhaustion.
+    Each SWE-bench Pro image is ~1.5GB and each instance uses a unique image,
+    so pruning after cleanup is critical for processing many instances.
+    """
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            "image",
+            "prune",
+            "-af",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        await proc.wait()
+    except Exception:
+        logger.debug("Failed to prune Docker images")
 
 
 async def _check_single_instance(
@@ -283,6 +305,8 @@ async def _check_single_instance(
                 await env.cleanup()
             except Exception:
                 logger.warning(f"Failed to clean up container for {instance_id}")
+        # Prune unused images to free disk space (each image is ~1.5GB)
+        await _prune_docker_images()
 
 
 async def run_benchmark_preflight(
