@@ -1588,6 +1588,18 @@ def benchmarks() -> None:
     default=300,
     help="Timeout per test in seconds (default: 300).",
 )
+@click.option(
+    "--shard-index",
+    type=int,
+    default=None,
+    help="Shard index for parallel runs (0-based).",
+)
+@click.option(
+    "--shard-total",
+    type=int,
+    default=None,
+    help="Total number of shards for parallel runs.",
+)
 def preflight(
     config_path: str | None,
     benchmark_name: str,
@@ -1597,6 +1609,8 @@ def preflight(
     fail_fast: bool,
     filter_category: tuple[str, ...],
     timeout: int,
+    shard_index: int | None,
+    shard_total: int | None,
 ) -> None:
     """Validate golden patches pass all tests before evaluation.
 
@@ -1633,6 +1647,20 @@ def preflight(
 
     if not tasks:
         console.print("[yellow]No tasks found matching the criteria.[/yellow]")
+        return
+
+    # Apply sharding if requested
+    if shard_index is not None and shard_total is not None:
+        if shard_index < 0 or shard_index >= shard_total:
+            console.print(
+                f"[red]Invalid shard-index {shard_index} for shard-total {shard_total}[/red]"
+            )
+            sys.exit(1)
+        tasks = tasks[shard_index::shard_total]
+        console.print(f"Shard {shard_index + 1}/{shard_total}: {len(tasks)} instance(s)\n")
+
+    if not tasks:
+        console.print("[yellow]No tasks in this shard.[/yellow]")
         return
 
     console.print(f"Validating {len(tasks)} instance(s)...\n")
