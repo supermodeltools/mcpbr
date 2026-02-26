@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **SWE-bench Pro benchmark**: Multi-language benchmark support (Python, Go, TypeScript, JavaScript) with 731 instances across 11 repositories
+  - DockerHub-hosted pre-built images via `dockerhub_tag` field
+  - Official run scripts from `scaleapi/SWE-bench_Pro-os` for per-repo test infrastructure
+  - Filter by language or repository substring with `--filter-category`
+- **Preflight check command**: `mcpbr preflight` validates golden patches pass all tests before evaluation
+  - Concurrent validation with configurable parallelism (`--max-concurrent`)
+  - Fail-fast mode (`--fail-fast`) for quick CI checks
+  - Per-instance and aggregate reporting with language breakdown
+- **Case-insensitive test list field access**: `get_test_list_field()` helper supports both SWE-bench (`FAIL_TO_PASS`) and SWE-bench Pro (`fail_to_pass`) conventions
+- **Docker image override support**: `_image_override` task field allows benchmarks to specify custom Docker images
+
+### Changed
+
+- **SWE-bench Pro test execution**: Replaced custom language-specific test command building (jest/mocha/go test) with official `run_script.sh` + `parser.py` from `scaleapi/SWE-bench_Pro-os`
+  - Each of the 11 repos has unique test infrastructure (e.g., Redis for NodeBB, `ansible-test` for ansible, custom runners for tutanota) that the official scripts handle correctly
+  - Parser runs locally on the host, avoiding Python dependency in Go/JS/TS container images
+  - Scripts repo is shallow-cloned and cached in `~/.cache/mcpbr/swebench-pro-scripts/`
+  - Falls back to standard `evaluate_patch()` for Python tasks without official scripts
+
 ## [0.14.0] - 2026-02-13
 
 ### Added

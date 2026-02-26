@@ -29,6 +29,7 @@ from .mlagentbench import MLAgentBenchBenchmark
 from .mmmu import MMMUBenchmark
 from .repoqa import RepoQABenchmark
 from .swebench import SWEBenchmark
+from .swebench_pro import SWEBenchProBenchmark
 from .terminalbench import TerminalBenchBenchmark
 from .toolbench import ToolBenchBenchmark
 from .truthfulqa import TruthfulQABenchmark
@@ -63,6 +64,7 @@ __all__ = [
     "MLAgentBenchBenchmark",
     "MMMUBenchmark",
     "RepoQABenchmark",
+    "SWEBenchProBenchmark",
     "SWEBenchmark",
     "TerminalBenchBenchmark",
     "ToolBenchBenchmark",
@@ -106,6 +108,7 @@ BENCHMARK_REGISTRY: dict[str, type[Benchmark]] = {
     "mmmu": MMMUBenchmark,
     "longbench": LongBenchBenchmark,
     "adversarial": AdversarialBenchmark,
+    "swe-bench-pro": SWEBenchProBenchmark,
 }
 
 
@@ -136,6 +139,9 @@ def create_benchmark(name: str, **kwargs: Any) -> Benchmark:
     }
     if name in swebench_datasets:
         kwargs["dataset"] = swebench_datasets[name]
+
+    if name == "swe-bench-pro":
+        kwargs["dataset"] = "ScaleAI/SWE-bench_Pro"
 
     return benchmark_class(**kwargs)
 
