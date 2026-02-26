@@ -62,25 +62,27 @@ class PreflightReport:
         return (self.passed / self.total) * 100.0
 
 
-async def _prune_docker_images() -> None:
-    """Remove unused Docker images to free disk space.
+async def _prune_docker() -> None:
+    """Remove unused Docker images, build cache, and volumes to free disk space.
 
     Called after each preflight instance to prevent disk exhaustion.
-    Each SWE-bench Pro image is ~1.5GB and each instance uses a unique image,
-    so pruning after cleanup is critical for processing many instances.
+    Each SWE-bench Pro image is ~1-5GB (protonmail is ~4.8GB compressed)
+    and each instance uses a unique image, so aggressive pruning after
+    cleanup is critical for processing many instances.
     """
     try:
         proc = await asyncio.create_subprocess_exec(
             "docker",
-            "image",
+            "system",
             "prune",
             "-af",
+            "--volumes",
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         await proc.wait()
     except Exception:
-        logger.debug("Failed to prune Docker images")
+        logger.debug("Failed to prune Docker system")
 
 
 async def _check_single_instance(
@@ -187,7 +189,7 @@ async def _check_single_instance(
             except Exception:
                 logger.warning(f"Failed to clean up container for {instance_id}")
         # Prune unused images to free disk space (each image is ~1.5GB)
-        await _prune_docker_images()
+        await _prune_docker()
 
 
 async def _check_with_official_scripts(
