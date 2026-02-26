@@ -9,9 +9,17 @@ Key differences from SWE-bench:
 - Multi-language test runners (Python, Go, TypeScript, JavaScript)
 - Lowercase field names (fail_to_pass instead of FAIL_TO_PASS)
 - Language metadata per task (repo_language field)
+
+Test execution uses official run scripts from scaleapi/SWE-bench_Pro-os,
+which handle per-repo test infrastructure (e.g., Redis for NodeBB,
+ansible-test for ansible, custom runners for tutanota).
 """
 
+import json
 import logging
+import subprocess
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from datasets import load_dataset
@@ -19,10 +27,12 @@ from datasets import load_dataset
 from ..docker_env import DockerEnvironmentManager, TaskEnvironment
 from ..evaluation import (
     EvaluationResult,
+    TestResults,
+    _apply_test_patch,
+    apply_patch,
     evaluate_patch,
     get_test_list_field,
     parse_test_list,
-    run_tests,
 )
 from .base import BenchmarkTask
 
@@ -40,6 +50,298 @@ _LANGUAGE_ALIASES: dict[str, str] = {
 # DockerHub registry prefix for SWE-bench Pro pre-built images
 SWEBENCH_PRO_IMAGE_PREFIX = "jefzda/sweap-images"
 
+# Git URL for the official SWE-bench Pro run scripts repository
+_RUN_SCRIPTS_REPO = "https://github.com/scaleapi/SWE-bench_Pro-os.git"
+
+# Default cache directory for cloned run scripts
+_DEFAULT_CACHE_DIR = Path.home() / ".cache" / "mcpbr" / "swebench-pro-scripts"
+
+
+def _ensure_run_scripts_repo(cache_dir: Path | None = None) -> Path:
+    """Clone or update the official SWE-bench Pro run scripts repository.
+
+    Performs a shallow clone of scaleapi/SWE-bench_Pro-os into the cache
+    directory. If the repo already exists, reuses it.
+
+    Args:
+        cache_dir: Directory to clone into. Defaults to ~/.cache/mcpbr/swebench-pro-scripts/.
+
+    Returns:
+        Path to the cloned repository root.
+    """
+    repo_dir = cache_dir or _DEFAULT_CACHE_DIR
+
+    if (repo_dir / "run_scripts").is_dir():
+        logger.debug("Run scripts repo already cached at %s", repo_dir)
+        return repo_dir
+
+    repo_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info("Cloning SWE-bench Pro run scripts to %s", repo_dir)
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--filter=blob:none",
+            "--sparse",
+            _RUN_SCRIPTS_REPO,
+            str(repo_dir),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    # Sparse checkout only the run_scripts directory
+    subprocess.run(
+        ["git", "sparse-checkout", "set", "run_scripts"],
+        cwd=str(repo_dir),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    return repo_dir
+
+
+def _get_instance_scripts(repo_path: Path, instance_id: str) -> tuple[str, str]:
+    """Read the run_script.sh and parser.py for a specific instance.
+
+    Args:
+        repo_path: Path to the cloned SWE-bench_Pro-os repository.
+        instance_id: Instance ID matching the directory name in run_scripts/.
+
+    Returns:
+        Tuple of (run_script_content, parser_content).
+
+    Raises:
+        FileNotFoundError: If instance scripts don't exist.
+    """
+    instance_dir = repo_path / "run_scripts" / instance_id
+
+    run_script_path = instance_dir / "run_script.sh"
+    parser_path = instance_dir / "parser.py"
+
+    if not run_script_path.exists():
+        raise FileNotFoundError(
+            f"No run_script.sh found for instance {instance_id} at {run_script_path}"
+        )
+    if not parser_path.exists():
+        raise FileNotFoundError(f"No parser.py found for instance {instance_id} at {parser_path}")
+
+    return run_script_path.read_text(), parser_path.read_text()
+
+
+async def _run_official_tests(
+    env: TaskEnvironment,
+    task: dict[str, Any],
+    run_script: str,
+    parser_script: str,
+    timeout: int = 300,
+) -> TestResults:
+    """Run tests using the official SWE-bench Pro run scripts.
+
+    Copies run_script.sh into the container, executes it with the selected
+    test files, captures stdout/stderr, then runs parser.py locally on
+    the host to parse results.
+
+    Args:
+        env: Task environment with a running container.
+        task: SWE-bench Pro task dictionary (needs selected_test_files_to_run).
+        run_script: Content of run_script.sh.
+        parser_script: Content of parser.py.
+        timeout: Timeout for test execution in seconds.
+
+    Returns:
+        TestResults with parsed pass/fail counts.
+    """
+    eval_workdir = "/app" if env.uses_prebuilt else None
+
+    # Build test files argument from selected_test_files_to_run
+    selected_files_raw = task.get("selected_test_files_to_run", "[]")
+    try:
+        selected_files = (
+            json.loads(selected_files_raw)
+            if isinstance(selected_files_raw, str)
+            else selected_files_raw
+        )
+    except (json.JSONDecodeError, TypeError):
+        selected_files = []
+
+    if not selected_files:
+        logger.warning("No selected_test_files_to_run for %s", task.get("instance_id"))
+        return TestResults(passed=0, total=0, details=[])
+
+    # Write run_script.sh to container
+    await env.write_file("run_script.sh", run_script, workdir=eval_workdir)
+    await env.exec_command("chmod +x /app/run_script.sh", timeout=10, workdir=eval_workdir)
+
+    # Join test files as comma-separated argument
+    test_files_arg = ",".join(str(f) for f in selected_files)
+
+    # Run the official test script
+    try:
+        _exit_code, stdout, stderr = await env.exec_command(
+            f"bash /app/run_script.sh '{test_files_arg}'",
+            timeout=timeout,
+            workdir=eval_workdir,
+        )
+    except TimeoutError:
+        logger.warning("Test execution timed out for %s", task.get("instance_id"))
+        return TestResults(passed=0, total=0, details=[{"error": "Test timed out"}])
+
+    # Run parser.py locally on host to parse the test output
+    return _parse_test_output_locally(
+        parser_script, stdout, stderr, task.get("instance_id", "unknown")
+    )
+
+
+def _parse_test_output_locally(
+    parser_script: str,
+    stdout: str,
+    stderr: str,
+    instance_id: str,
+) -> TestResults:
+    """Run parser.py as a local subprocess to parse test output.
+
+    The parser runs on the host (not in the container) because Go/JS/TS
+    container images may not have Python installed.
+
+    Args:
+        parser_script: Content of parser.py.
+        stdout: Captured stdout from test execution.
+        stderr: Captured stderr from test execution.
+        instance_id: Instance ID for logging.
+
+    Returns:
+        TestResults parsed from the output.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        parser_path = tmp / "parser.py"
+        stdout_path = tmp / "stdout.log"
+        stderr_path = tmp / "stderr.log"
+        output_path = tmp / "output.json"
+
+        parser_path.write_text(parser_script)
+        stdout_path.write_text(stdout or "")
+        stderr_path.write_text(stderr or "")
+
+        try:
+            result = subprocess.run(
+                [
+                    "python3",
+                    str(parser_path),
+                    str(stdout_path),
+                    str(stderr_path),
+                    str(output_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning("Parser timed out for %s", instance_id)
+            return TestResults(passed=0, total=0, details=[{"error": "Parser timed out"}])
+
+        if result.returncode != 0:
+            logger.warning("Parser failed for %s: %s", instance_id, result.stderr[:500])
+            return TestResults(
+                passed=0,
+                total=0,
+                details=[{"error": f"Parser failed: {result.stderr[:500]}"}],
+            )
+
+        if not output_path.exists():
+            logger.warning("Parser produced no output.json for %s", instance_id)
+            return TestResults(passed=0, total=0, details=[])
+
+        try:
+            output_data = json.loads(output_path.read_text())
+        except json.JSONDecodeError:
+            logger.warning("Parser output is not valid JSON for %s", instance_id)
+            return TestResults(passed=0, total=0, details=[])
+
+        tests = output_data.get("tests", [])
+        passed = sum(1 for t in tests if t.get("status") == "PASSED")
+        total = len(tests)
+
+        details = [
+            {
+                "test": t.get("name", "unknown"),
+                "passed": t.get("status") == "PASSED",
+                "status": t.get("status", "UNKNOWN"),
+            }
+            for t in tests
+        ]
+
+        return TestResults(passed=passed, total=total, details=details)
+
+
+def _match_test_results(
+    parsed_results: TestResults,
+    fail_to_pass: list[str],
+    pass_to_pass: list[str],
+) -> tuple[TestResults, TestResults]:
+    """Match parsed test results against expected fail_to_pass and pass_to_pass lists.
+
+    The parser produces test names like "file.js | test description" or
+    "TestFoo" etc. We match these against the expected test lists from
+    the dataset.
+
+    Args:
+        parsed_results: TestResults from _run_official_tests.
+        fail_to_pass: Expected tests that should pass (were failing before fix).
+        pass_to_pass: Expected tests that should still pass (regression check).
+
+    Returns:
+        Tuple of (fail_to_pass_results, pass_to_pass_results).
+    """
+    # Build a lookup of parsed test name → status
+    parsed_status: dict[str, str] = {}
+    for detail in parsed_results.details:
+        name = detail.get("test", "")
+        status = detail.get("status", "UNKNOWN")
+        if name:
+            parsed_status[name] = status
+
+    def _check_tests(expected: list[str]) -> TestResults:
+        if not expected:
+            return TestResults(passed=0, total=0, details=[])
+
+        passed = 0
+        details = []
+        for test_name in expected:
+            # Try exact match first
+            status = parsed_status.get(test_name)
+
+            # If no exact match, try substring matching (parser may add
+            # file prefixes or slightly different formatting)
+            if status is None:
+                for parsed_name, parsed_stat in parsed_status.items():
+                    if test_name in parsed_name or parsed_name in test_name:
+                        status = parsed_stat
+                        break
+
+            test_passed = status == "PASSED"
+            if test_passed:
+                passed += 1
+            details.append(
+                {
+                    "test": test_name,
+                    "passed": test_passed,
+                    "status": status or "NOT_FOUND",
+                }
+            )
+
+        return TestResults(passed=passed, total=len(expected), details=details)
+
+    ftp_results = _check_tests(fail_to_pass)
+    ptp_results = _check_tests(pass_to_pass)
+
+    return ftp_results, ptp_results
+
 
 class SWEBenchProBenchmark:
     """SWE-bench Pro benchmark implementation.
@@ -50,13 +352,26 @@ class SWEBenchProBenchmark:
 
     name = "swe-bench-pro"
 
-    def __init__(self, dataset: str = "ScaleAI/SWE-bench_Pro"):
+    def __init__(
+        self,
+        dataset: str = "ScaleAI/SWE-bench_Pro",
+        scripts_cache_dir: Path | None = None,
+    ):
         """Initialize SWE-bench Pro benchmark.
 
         Args:
             dataset: HuggingFace dataset identifier.
+            scripts_cache_dir: Override cache dir for run scripts repo.
         """
         self.dataset = dataset
+        self._scripts_cache_dir = scripts_cache_dir
+        self._scripts_repo_path: Path | None = None
+
+    def _get_scripts_repo(self) -> Path:
+        """Lazily clone and return the run scripts repo path."""
+        if self._scripts_repo_path is None:
+            self._scripts_repo_path = _ensure_run_scripts_repo(self._scripts_cache_dir)
+        return self._scripts_repo_path
 
     def load_tasks(
         self,
@@ -180,8 +495,9 @@ class SWEBenchProBenchmark:
     ) -> dict[str, Any]:
         """Evaluate a patch for SWE-bench Pro task.
 
-        For Python tasks, delegates to the existing evaluate_patch().
-        For Go/TypeScript/JavaScript, uses language-specific test runners.
+        Uses official run scripts from scaleapi/SWE-bench_Pro-os for all
+        languages. Falls back to the standard evaluate_patch() for Python
+        tasks when official scripts are not available.
 
         Args:
             env: Task environment.
@@ -191,37 +507,54 @@ class SWEBenchProBenchmark:
         Returns:
             Dictionary with evaluation results including 'resolved' boolean.
         """
-        language = task.get("repo_language", "python").lower()
+        instance_id = task.get("instance_id", "")
 
+        # Try to use official run scripts
+        try:
+            scripts_repo = self._get_scripts_repo()
+            run_script, parser_script = _get_instance_scripts(scripts_repo, instance_id)
+            return await self._evaluate_with_official_scripts(
+                env, task, solution, run_script, parser_script
+            )
+        except FileNotFoundError:
+            logger.info(
+                "No official scripts for %s, falling back to standard evaluation",
+                instance_id,
+            )
+
+        # Fallback for Python tasks without official scripts
+        language = task.get("repo_language", "python").lower()
         if language == "python":
-            # Delegate Python evaluation to existing logic
             eval_result: EvaluationResult = await evaluate_patch(env, task, solution)
             return self._eval_result_to_dict(eval_result)
 
-        # For non-Python languages, use language-specific evaluation
-        return await self._evaluate_multilang(env, task, solution, language)
+        return {
+            "resolved": False,
+            "patch_applied": False,
+            "eval_error": f"No official run scripts found for {instance_id}",
+        }
 
-    async def _evaluate_multilang(
+    async def _evaluate_with_official_scripts(
         self,
         env: TaskEnvironment,
         task: dict[str, Any],
         patch: str,
-        language: str,
+        run_script: str,
+        parser_script: str,
     ) -> dict[str, Any]:
-        """Evaluate a patch using language-specific test runners.
+        """Evaluate using official SWE-bench Pro run scripts.
 
         Args:
             env: Task environment.
             task: SWE-bench Pro task dictionary.
             patch: Unified diff patch to evaluate.
-            language: Programming language (go, typescript, javascript).
+            run_script: Content of run_script.sh.
+            parser_script: Content of parser.py.
 
         Returns:
             Dictionary with evaluation results.
         """
-        from ..evaluation import _apply_test_patch, apply_patch
-
-        # SWE-bench Pro images use /app as their working directory
+        language = task.get("repo_language", "python").lower()
         eval_workdir = "/app" if env.uses_prebuilt else None
 
         applied, error = await apply_patch(env, patch, workdir=eval_workdir)
@@ -241,110 +574,39 @@ class SWEBenchProBenchmark:
                 workdir=eval_workdir,
             )
 
+        # Run tests using official scripts
+        parsed_results = await _run_official_tests(
+            env, task, run_script, parser_script, timeout=300
+        )
+
+        # Match against expected test lists
         fail_to_pass_str = get_test_list_field(task, "fail_to_pass")
         pass_to_pass_str = get_test_list_field(task, "pass_to_pass")
         fail_to_pass_tests = parse_test_list(fail_to_pass_str)
         pass_to_pass_tests = parse_test_list(pass_to_pass_str)
 
-        fail_to_pass_results = await self._run_lang_tests(
-            env, fail_to_pass_tests, language, workdir=eval_workdir
-        )
-        pass_to_pass_results = await self._run_lang_tests(
-            env, pass_to_pass_tests[:10], language, workdir=eval_workdir
+        ftp_results, ptp_results = _match_test_results(
+            parsed_results, fail_to_pass_tests, pass_to_pass_tests
         )
 
         resolved = (
-            fail_to_pass_results.passed == fail_to_pass_results.total
-            and fail_to_pass_results.total > 0
-            and pass_to_pass_results.passed == pass_to_pass_results.total
+            ftp_results.passed == ftp_results.total
+            and ftp_results.total > 0
+            and ptp_results.passed == ptp_results.total
         )
 
         result: dict[str, Any] = {"resolved": resolved, "patch_applied": True}
-        if fail_to_pass_results:
+        if ftp_results:
             result["fail_to_pass"] = {
-                "passed": fail_to_pass_results.passed,
-                "total": fail_to_pass_results.total,
+                "passed": ftp_results.passed,
+                "total": ftp_results.total,
             }
-        if pass_to_pass_results:
+        if ptp_results:
             result["pass_to_pass"] = {
-                "passed": pass_to_pass_results.passed,
-                "total": pass_to_pass_results.total,
+                "passed": ptp_results.passed,
+                "total": ptp_results.total,
             }
         return result
-
-    async def _run_lang_tests(
-        self,
-        env: TaskEnvironment,
-        tests: list[str],
-        language: str,
-        workdir: str | None = None,
-        timeout: int = 120,
-    ) -> Any:
-        """Run tests using language-specific commands.
-
-        Args:
-            env: Task environment.
-            tests: List of test identifiers.
-            language: Programming language.
-            workdir: Working directory.
-            timeout: Timeout per test in seconds.
-
-        Returns:
-            TestResults instance.
-        """
-        if language == "python":
-            return await run_tests(
-                env, tests, timeout=timeout, uses_prebuilt=env.uses_prebuilt, workdir=workdir
-            )
-
-        # For non-Python, build language-specific commands and run
-        from ..evaluation import TestResults
-
-        if not tests:
-            return TestResults(passed=0, total=0, details=[])
-
-        # Detect JS/TS test runner once (avoids repeated detection per test)
-        js_runner = "jest"
-        if language in ("typescript", "javascript", "ts", "js"):
-            js_runner = await _detect_js_runner(env, workdir=workdir)
-
-        results = []
-        passed = 0
-
-        for test in tests:
-            # SWE-bench Pro images don't use conda — never prepend conda activation
-            # for non-Python languages (uses_prebuilt=False disables it)
-            test_cmd = _build_pro_test_command(
-                test, language, uses_prebuilt=False, js_runner=js_runner
-            )
-            try:
-                exit_code, stdout, stderr = await env.exec_command(
-                    test_cmd, timeout=timeout, workdir=workdir
-                )
-                test_passed = exit_code == 0
-                if test_passed:
-                    passed += 1
-                results.append(
-                    {
-                        "test": test,
-                        "passed": test_passed,
-                        "exit_code": exit_code,
-                        "output": stdout[:1000] if stdout else "",
-                        "error": stderr[:1000] if stderr else "",
-                    }
-                )
-            except TimeoutError:
-                results.append(
-                    {
-                        "test": test,
-                        "passed": False,
-                        "exit_code": -1,
-                        "output": "",
-                        "error": "Test timed out",
-                    }
-                )
-
-        return TestResults(passed=passed, total=len(tests), details=results)
 
     def _eval_result_to_dict(self, eval_result: EvaluationResult) -> dict[str, Any]:
         """Convert EvaluationResult to dictionary format."""
@@ -403,192 +665,3 @@ class SWEBenchProBenchmark:
     def get_default_sandbox_level(self) -> str | None:
         """Get default sandbox level for SWE-bench Pro."""
         return None
-
-
-_KNOWN_RUNNERS = ("jest", "mocha", "vitest", "ospec", "ava")
-
-
-async def _detect_js_runner(env: "TaskEnvironment", workdir: str | None = None) -> str:
-    """Detect the JavaScript/TypeScript test runner installed in a container.
-
-    Detection strategy:
-    1. Check node_modules/.bin/ for known runner binaries
-    2. Parse package.json scripts.test for runner hints
-    3. Fall back to "npm" (runs npm test) if nothing is detected
-
-    Args:
-        env: Task environment with exec_command.
-        workdir: Working directory inside container.
-
-    Returns:
-        Runner name: "jest", "mocha", "vitest", "ospec", "ava", or "npm".
-    """
-    # Check for runner binaries in node_modules
-    detect_cmd = (
-        "if [ -f node_modules/.bin/jest ]; then echo jest; "
-        "elif [ -f node_modules/.bin/mocha ]; then echo mocha; "
-        "elif [ -f node_modules/.bin/vitest ]; then echo vitest; "
-        "elif [ -f node_modules/.bin/ospec ]; then echo ospec; "
-        "elif [ -f node_modules/.bin/ava ]; then echo ava; "
-        "else echo none; fi"
-    )
-    try:
-        exit_code, stdout, _ = await env.exec_command(detect_cmd, timeout=10, workdir=workdir)
-        if exit_code == 0 and stdout:
-            runner = stdout.strip().split("\n")[-1].strip()
-            if runner in _KNOWN_RUNNERS:
-                return runner
-    except Exception:
-        logger.debug("Failed to detect JS test runner from node_modules")
-
-    # Fallback: parse package.json scripts.test for runner hints
-    pkg_cmd = (
-        "node -e \"try{const p=require('./package.json');"
-        "console.log(p.scripts&&p.scripts.test||'')}catch(e){console.log('')}\" 2>/dev/null"
-    )
-    try:
-        exit_code, stdout, _ = await env.exec_command(pkg_cmd, timeout=10, workdir=workdir)
-        if exit_code == 0 and stdout:
-            test_script = stdout.strip().split("\n")[-1].strip().lower()
-            for runner in _KNOWN_RUNNERS:
-                if runner in test_script:
-                    return runner
-    except Exception:
-        logger.debug("Failed to detect JS test runner from package.json")
-
-    # Ultimate fallback: use npm test
-    return "npm"
-
-
-def _build_pro_test_command(
-    test: str,
-    language: str,
-    uses_prebuilt: bool = False,
-    js_runner: str = "jest",
-) -> str:
-    """Build a language-specific test command for SWE-bench Pro.
-
-    Test ID formats by language:
-        Go: "TestFoo", "TestFoo/subtest", "TestFoo/#00"
-        JS/TS: "file.js | test description", "file.ts | suite name"
-        Python: "tests/test_foo.py::TestClass::test_method"
-
-    Args:
-        test: Test identifier.
-        language: Programming language (python, go, typescript, javascript, js, ts).
-        uses_prebuilt: Whether a pre-built image is being used (adds conda activation).
-        js_runner: JavaScript test runner ("jest", "mocha", or "vitest").
-
-    Returns:
-        Shell command string to run the test.
-    """
-    import shlex
-
-    from ..evaluation import _build_test_command, _normalize_test_id
-
-    if language == "python":
-        return _build_test_command(test, uses_prebuilt)
-
-    test = _normalize_test_id(test)
-
-    if uses_prebuilt:
-        activate = "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed && "
-    else:
-        activate = ""
-
-    if language == "go":
-        # Go test IDs are always function names, optionally with subtests via /
-        # e.g., "TestFoo", "TestFoo/subtest", "TestFoo/#00", "TestFoo//api/v1"
-        # Always use -run with the top-level test name and ./... to search all packages
-        if "/" in test:
-            # Extract top-level test name (before first /)
-            top_level = test.split("/", 1)[0]
-            return f"{activate}go test -v -count=1 -run {shlex.quote(top_level)} ./... 2>&1"
-        else:
-            return f"{activate}go test -v -count=1 -run {shlex.quote(test)} ./... 2>&1"
-
-    if language in ("typescript", "javascript", "ts", "js"):
-        return _build_js_test_command(test, js_runner, activate)
-
-    # Fallback: try running as-is
-    return f"{activate}{test} 2>&1"
-
-
-def _build_js_test_command(test: str, runner: str, activate: str = "") -> str:
-    """Build a JS/TS test command for the detected runner.
-
-    Args:
-        test: Test identifier in "file | description" format.
-        runner: Test runner name ("jest", "mocha", "vitest", "ospec", "ava", "npm").
-        activate: Optional conda activation prefix.
-
-    Returns:
-        Shell command string.
-    """
-    import shlex
-
-    # Parse "file | description" format
-    file_path = ""
-    test_name = ""
-    if " | " in test:
-        parts = test.split(" | ", 1)
-        file_path = parts[0].strip()
-        test_name = parts[1].strip()
-    elif "/" in test or test.endswith((".ts", ".js", ".tsx", ".jsx")):
-        file_path = test
-    else:
-        test_name = test
-
-    if runner == "mocha":
-        cmd = f"{activate}npx mocha"
-        if file_path:
-            cmd += f" {shlex.quote(file_path)}"
-        if test_name and test_name != "test suite":
-            cmd += f" --grep {shlex.quote(test_name)}"
-        cmd += " --timeout 30000 2>&1"
-        return cmd
-
-    if runner == "vitest":
-        cmd = f"{activate}npx vitest run"
-        if file_path:
-            cmd += f" {shlex.quote(file_path)}"
-        if test_name and test_name != "test suite":
-            cmd += f" -t {shlex.quote(test_name)}"
-        cmd += " 2>&1"
-        return cmd
-
-    if runner == "ospec":
-        # ospec: run file directly with node (ospec tests are self-executing)
-        if file_path:
-            cmd = f"{activate}node {shlex.quote(file_path)} 2>&1"
-        else:
-            cmd = f"{activate}npx ospec 2>&1"
-        return cmd
-
-    if runner == "ava":
-        cmd = f"{activate}npx ava"
-        if file_path:
-            cmd += f" {shlex.quote(file_path)}"
-        if test_name and test_name != "test suite":
-            cmd += f" -m {shlex.quote(test_name)}"
-        cmd += " 2>&1"
-        return cmd
-
-    if runner == "npm":
-        # Fallback: use npm test, passing file as argument if possible
-        if file_path:
-            cmd = f"{activate}npm test -- {shlex.quote(file_path)} 2>&1"
-        elif test_name:
-            cmd = f"{activate}npm test 2>&1"
-        else:
-            cmd = f"{activate}npm test 2>&1"
-        return cmd
-
-    # Default: jest
-    cmd = f"{activate}npx jest"
-    if file_path:
-        cmd += f" {shlex.quote(file_path)}"
-    if test_name and test_name != "test suite":
-        cmd += f" -t {shlex.quote(test_name)}"
-    cmd += " --verbose --no-cache 2>&1"
-    return cmd

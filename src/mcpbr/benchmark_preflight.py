@@ -11,9 +11,14 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any
 
+from .benchmarks.swebench_pro import (
+    _ensure_run_scripts_repo,
+    _get_instance_scripts,
+    _match_test_results,
+    _run_official_tests,
+)
 from .docker_env import DockerEnvironmentManager, TaskEnvironment
 from .evaluation import (
-    TestResults,
     _apply_test_patch,
     apply_patch,
     get_test_list_field,
@@ -56,88 +61,6 @@ class PreflightReport:
         return (self.passed / self.total) * 100.0
 
 
-async def _run_preflight_tests(
-    env: TaskEnvironment,
-    tests: list[str],
-    language: str,
-    timeout: int = 300,
-    uses_conda: bool = False,
-    workdir: str | None = None,
-    repo: str | None = None,
-) -> TestResults:
-    """Run tests using the appropriate language-specific runner.
-
-    For Python, delegates to the standard run_tests(). For Go, JavaScript,
-    and TypeScript, builds language-specific commands (go test, npx jest).
-
-    Args:
-        env: Task environment.
-        tests: List of test identifiers.
-        language: Programming language.
-        timeout: Timeout per test in seconds.
-        uses_conda: Whether to activate conda environment.
-        workdir: Working directory inside container.
-        repo: Repository name (used for Python test specs).
-
-    Returns:
-        TestResults with pass/fail counts.
-    """
-    if language == "python":
-        return await run_tests(
-            env,
-            tests,
-            timeout=timeout,
-            uses_prebuilt=uses_conda,
-            workdir=workdir,
-            repo=repo,
-        )
-
-    # Non-Python: use language-specific test commands
-    from .benchmarks.swebench_pro import _build_pro_test_command, _detect_js_runner
-
-    if not tests:
-        return TestResults(passed=0, total=0, details=[])
-
-    # Detect JS/TS test runner once per instance
-    js_runner = "jest"
-    if language in ("typescript", "javascript", "ts", "js"):
-        js_runner = await _detect_js_runner(env, workdir=workdir)
-
-    results = []
-    passed = 0
-
-    for test in tests:
-        test_cmd = _build_pro_test_command(test, language, uses_conda, js_runner=js_runner)
-        try:
-            exit_code, stdout, stderr = await env.exec_command(
-                test_cmd, timeout=timeout, workdir=workdir
-            )
-            test_passed = exit_code == 0
-            if test_passed:
-                passed += 1
-            results.append(
-                {
-                    "test": test,
-                    "passed": test_passed,
-                    "exit_code": exit_code,
-                    "output": stdout[:1000] if stdout else "",
-                    "error": stderr[:1000] if stderr else "",
-                }
-            )
-        except TimeoutError:
-            results.append(
-                {
-                    "test": test,
-                    "passed": False,
-                    "exit_code": -1,
-                    "output": "",
-                    "error": "Test timed out",
-                }
-            )
-
-    return TestResults(passed=passed, total=len(tests), details=results)
-
-
 async def _prune_docker_images() -> None:
     """Remove unused Docker images to free disk space.
 
@@ -166,6 +89,10 @@ async def _check_single_instance(
     timeout: int = 300,
 ) -> PreflightResult:
     """Validate a single benchmark instance by applying the golden patch.
+
+    For SWE-bench Pro tasks (identified by having a dockerhub_tag), uses
+    official run scripts from scaleapi/SWE-bench_Pro-os. For standard
+    SWE-bench tasks, falls back to the existing test runner logic.
 
     Args:
         benchmark: Benchmark instance with create_environment method.
@@ -231,63 +158,13 @@ async def _check_single_instance(
                 workdir=eval_workdir,
             )
 
-        # Parse test lists (handle both uppercase and lowercase field names)
-        fail_to_pass_str = get_test_list_field(task, "fail_to_pass")
-        pass_to_pass_str = get_test_list_field(task, "pass_to_pass")
-        fail_to_pass_tests = parse_test_list(fail_to_pass_str)
-        pass_to_pass_tests = parse_test_list(pass_to_pass_str)
+        # Try official SWE-bench Pro run scripts first (for all languages)
+        if task.get("dockerhub_tag"):
+            return await _check_with_official_scripts(env, task, instance_id, language, timeout)
 
-        # SWE-bench Pro images don't use conda, so skip conda activation
-        # even though uses_prebuilt is True (it only means "image was pulled")
-        uses_conda = env.uses_prebuilt and not task.get("dockerhub_tag")
-
-        # Run fail_to_pass tests (all must PASS with golden patch)
-        ftp_results = await _run_preflight_tests(
-            env,
-            fail_to_pass_tests,
-            language=language,
-            timeout=timeout,
-            uses_conda=uses_conda,
-            workdir=eval_workdir,
-            repo=task.get("repo"),
-        )
-
-        # Run pass_to_pass tests (all must still PASS)
-        ptp_results = await _run_preflight_tests(
-            env,
-            pass_to_pass_tests[:10],
-            language=language,
-            timeout=timeout,
-            uses_conda=uses_conda,
-            workdir=eval_workdir,
-            repo=task.get("repo"),
-        )
-
-        # Determine status
-        all_ftp_pass = ftp_results.passed == ftp_results.total and ftp_results.total > 0
-        all_ptp_pass = ptp_results.passed == ptp_results.total
-
-        if all_ftp_pass and all_ptp_pass:
-            status = "passed"
-            error_msg = None
-        else:
-            status = "failed"
-            parts = []
-            if not all_ftp_pass:
-                parts.append(f"fail_to_pass: {ftp_results.passed}/{ftp_results.total} passed")
-            if not all_ptp_pass:
-                parts.append(f"pass_to_pass: {ptp_results.passed}/{ptp_results.total} passed")
-            error_msg = "; ".join(parts)
-
-        return PreflightResult(
-            instance_id=instance_id,
-            status=status,
-            fail_to_pass_passed=ftp_results.passed,
-            fail_to_pass_total=ftp_results.total,
-            pass_to_pass_passed=ptp_results.passed,
-            pass_to_pass_total=ptp_results.total,
-            error=error_msg,
-            language=language,
+        # Fallback: standard SWE-bench test runner (Python only)
+        return await _check_with_standard_runner(
+            env, task, instance_id, language, eval_workdir, timeout
         )
 
     except Exception as e:
@@ -307,6 +184,156 @@ async def _check_single_instance(
                 logger.warning(f"Failed to clean up container for {instance_id}")
         # Prune unused images to free disk space (each image is ~1.5GB)
         await _prune_docker_images()
+
+
+async def _check_with_official_scripts(
+    env: TaskEnvironment,
+    task: dict[str, Any],
+    instance_id: str,
+    language: str,
+    timeout: int,
+) -> PreflightResult:
+    """Run preflight using official SWE-bench Pro run scripts.
+
+    Args:
+        env: Task environment.
+        task: Task dictionary.
+        instance_id: Instance ID.
+        language: Programming language.
+        timeout: Test timeout in seconds.
+
+    Returns:
+        PreflightResult.
+    """
+    try:
+        scripts_repo = _ensure_run_scripts_repo()
+        run_script, parser_script = _get_instance_scripts(scripts_repo, instance_id)
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        return PreflightResult(
+            instance_id=instance_id,
+            status="error",
+            error=f"Failed to get run scripts: {e}",
+            language=language,
+        )
+
+    # Run tests using official scripts
+    parsed_results = await _run_official_tests(
+        env, task, run_script, parser_script, timeout=timeout
+    )
+
+    # Parse expected test lists
+    fail_to_pass_str = get_test_list_field(task, "fail_to_pass")
+    pass_to_pass_str = get_test_list_field(task, "pass_to_pass")
+    fail_to_pass_tests = parse_test_list(fail_to_pass_str)
+    pass_to_pass_tests = parse_test_list(pass_to_pass_str)
+
+    # Match parsed results against expectations
+    ftp_results, ptp_results = _match_test_results(
+        parsed_results, fail_to_pass_tests, pass_to_pass_tests
+    )
+
+    # Determine status
+    all_ftp_pass = ftp_results.passed == ftp_results.total and ftp_results.total > 0
+    all_ptp_pass = ptp_results.passed == ptp_results.total
+
+    if all_ftp_pass and all_ptp_pass:
+        status = "passed"
+        error_msg = None
+    else:
+        status = "failed"
+        parts = []
+        if not all_ftp_pass:
+            parts.append(f"fail_to_pass: {ftp_results.passed}/{ftp_results.total} passed")
+        if not all_ptp_pass:
+            parts.append(f"pass_to_pass: {ptp_results.passed}/{ptp_results.total} passed")
+        error_msg = "; ".join(parts)
+
+    return PreflightResult(
+        instance_id=instance_id,
+        status=status,
+        fail_to_pass_passed=ftp_results.passed,
+        fail_to_pass_total=ftp_results.total,
+        pass_to_pass_passed=ptp_results.passed,
+        pass_to_pass_total=ptp_results.total,
+        error=error_msg,
+        language=language,
+    )
+
+
+async def _check_with_standard_runner(
+    env: TaskEnvironment,
+    task: dict[str, Any],
+    instance_id: str,
+    language: str,
+    eval_workdir: str | None,
+    timeout: int,
+) -> PreflightResult:
+    """Run preflight using standard SWE-bench test runner (Python).
+
+    Falls back to this for standard SWE-bench tasks that don't have
+    official run scripts (non-Pro tasks).
+
+    Args:
+        env: Task environment.
+        task: Task dictionary.
+        instance_id: Instance ID.
+        language: Programming language.
+        eval_workdir: Working directory inside container.
+        timeout: Test timeout in seconds.
+
+    Returns:
+        PreflightResult.
+    """
+    fail_to_pass_str = get_test_list_field(task, "fail_to_pass")
+    pass_to_pass_str = get_test_list_field(task, "pass_to_pass")
+    fail_to_pass_tests = parse_test_list(fail_to_pass_str)
+    pass_to_pass_tests = parse_test_list(pass_to_pass_str)
+
+    uses_conda = env.uses_prebuilt and not task.get("dockerhub_tag")
+
+    ftp_results = await run_tests(
+        env,
+        fail_to_pass_tests,
+        timeout=timeout,
+        uses_prebuilt=uses_conda,
+        workdir=eval_workdir,
+        repo=task.get("repo"),
+    )
+
+    ptp_results = await run_tests(
+        env,
+        pass_to_pass_tests[:10],
+        timeout=timeout,
+        uses_prebuilt=uses_conda,
+        workdir=eval_workdir,
+        repo=task.get("repo"),
+    )
+
+    all_ftp_pass = ftp_results.passed == ftp_results.total and ftp_results.total > 0
+    all_ptp_pass = ptp_results.passed == ptp_results.total
+
+    if all_ftp_pass and all_ptp_pass:
+        status = "passed"
+        error_msg = None
+    else:
+        status = "failed"
+        parts = []
+        if not all_ftp_pass:
+            parts.append(f"fail_to_pass: {ftp_results.passed}/{ftp_results.total} passed")
+        if not all_ptp_pass:
+            parts.append(f"pass_to_pass: {ptp_results.passed}/{ptp_results.total} passed")
+        error_msg = "; ".join(parts)
+
+    return PreflightResult(
+        instance_id=instance_id,
+        status=status,
+        fail_to_pass_passed=ftp_results.passed,
+        fail_to_pass_total=ftp_results.total,
+        pass_to_pass_passed=ptp_results.passed,
+        pass_to_pass_total=ptp_results.total,
+        error=error_msg,
+        language=language,
+    )
 
 
 async def run_benchmark_preflight(

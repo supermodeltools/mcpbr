@@ -1,13 +1,20 @@
 """Tests for SWE-bench Pro benchmark implementation."""
 
-from unittest.mock import MagicMock, patch
+import json
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from mcpbr.benchmarks.swebench_pro import (
     PRO_LANGUAGES,
     SWEBENCH_PRO_IMAGE_PREFIX,
     SWEBenchProBenchmark,
-    _build_pro_test_command,
+    _get_instance_scripts,
+    _match_test_results,
+    _parse_test_output_locally,
 )
+from mcpbr.evaluation import TestResults
 
 
 class TestSWEBenchProInit:
@@ -24,6 +31,10 @@ class TestSWEBenchProInit:
     def test_name(self) -> None:
         benchmark = SWEBenchProBenchmark()
         assert benchmark.name == "swe-bench-pro"
+
+    def test_custom_scripts_cache_dir(self) -> None:
+        benchmark = SWEBenchProBenchmark(scripts_cache_dir=Path("/tmp/test-scripts"))
+        assert benchmark._scripts_cache_dir == Path("/tmp/test-scripts")
 
 
 class TestSWEBenchProNormalizeTask:
@@ -90,122 +101,318 @@ class TestSWEBenchProNormalizeTask:
         assert bt.metadata["repo_language"] == "go"
 
 
-class TestBuildProTestCommand:
-    """Tests for language-specific test command building."""
+class TestGetInstanceScripts:
+    """Tests for _get_instance_scripts."""
 
-    def test_python_delegates(self) -> None:
-        """Python should delegate to existing _build_test_command."""
-        cmd = _build_pro_test_command("tests/test_foo.py::test_bar", "python")
-        assert "pytest" in cmd or "test_foo" in cmd
+    def test_reads_scripts_from_directory(self, tmp_path: Path) -> None:
+        instance_id = "instance_test__repo-abc123"
+        instance_dir = tmp_path / "run_scripts" / instance_id
+        instance_dir.mkdir(parents=True)
 
-    def test_go_function_name(self) -> None:
-        cmd = _build_pro_test_command("TestRouteMatching", "go")
-        assert "go test" in cmd
-        assert "-run" in cmd
-        assert "TestRouteMatching" in cmd
-        assert "./..." in cmd
+        run_script_content = "#!/bin/bash\necho 'test'"
+        parser_content = "import sys\nprint('parser')"
 
-    def test_go_subtest(self) -> None:
-        """Go subtests (TestFoo/#00, TestFoo/subtest) use top-level name with -run."""
-        cmd = _build_pro_test_command("TestParseResourcePath/#00", "go")
-        assert "go test" in cmd
-        assert "-run" in cmd
-        assert "TestParseResourcePath" in cmd
-        assert "./..." in cmd
+        (instance_dir / "run_script.sh").write_text(run_script_content)
+        (instance_dir / "parser.py").write_text(parser_content)
 
-    def test_typescript_file(self) -> None:
-        cmd = _build_pro_test_command("src/__tests__/parser.test.ts", "typescript")
-        assert "npx jest" in cmd
-        assert "parser.test.ts" in cmd
+        run_script, parser = _get_instance_scripts(tmp_path, instance_id)
+        assert run_script == run_script_content
+        assert parser == parser_content
 
-    def test_typescript_pattern(self) -> None:
-        cmd = _build_pro_test_command("should parse tokens", "typescript")
-        assert "npx jest" in cmd
-        assert "-t" in cmd
+    def test_raises_on_missing_run_script(self, tmp_path: Path) -> None:
+        instance_id = "instance_missing__repo-abc123"
+        instance_dir = tmp_path / "run_scripts" / instance_id
+        instance_dir.mkdir(parents=True)
+        (instance_dir / "parser.py").write_text("parser")
 
-    def test_javascript_file(self) -> None:
-        cmd = _build_pro_test_command("test/index.test.js", "javascript")
-        assert "npx jest" in cmd
-        assert "index.test.js" in cmd
+        with pytest.raises(FileNotFoundError, match=r"run_script\.sh"):
+            _get_instance_scripts(tmp_path, instance_id)
 
-    def test_javascript_pattern(self) -> None:
-        cmd = _build_pro_test_command("handles edge case", "javascript")
-        assert "npx jest" in cmd
+    def test_raises_on_missing_parser(self, tmp_path: Path) -> None:
+        instance_id = "instance_missing__repo-abc123"
+        instance_dir = tmp_path / "run_scripts" / instance_id
+        instance_dir.mkdir(parents=True)
+        (instance_dir / "run_script.sh").write_text("script")
 
-    def test_js_pipe_format_jest(self) -> None:
-        """SWE-bench Pro JS format with jest runner."""
-        cmd = _build_pro_test_command(
-            "test/database.js | Test database key methods", "js", js_runner="jest"
+        with pytest.raises(FileNotFoundError, match=r"parser\.py"):
+            _get_instance_scripts(tmp_path, instance_id)
+
+    def test_raises_on_missing_directory(self, tmp_path: Path) -> None:
+        (tmp_path / "run_scripts").mkdir(parents=True)
+        with pytest.raises(FileNotFoundError):
+            _get_instance_scripts(tmp_path, "nonexistent_instance")
+
+
+class TestMatchTestResults:
+    """Tests for _match_test_results."""
+
+    def test_all_tests_pass(self) -> None:
+        parsed = TestResults(
+            passed=2,
+            total=2,
+            details=[
+                {"test": "TestFoo", "passed": True, "status": "PASSED"},
+                {"test": "TestBar", "passed": True, "status": "PASSED"},
+            ],
         )
-        assert "npx jest" in cmd
-        assert "test/database.js" in cmd
-        assert "-t" in cmd
-        assert "Test database key methods" in cmd
+        ftp, ptp = _match_test_results(parsed, ["TestFoo"], ["TestBar"])
+        assert ftp.passed == 1
+        assert ftp.total == 1
+        assert ptp.passed == 1
+        assert ptp.total == 1
 
-    def test_js_pipe_format_mocha(self) -> None:
-        """SWE-bench Pro JS format with mocha runner."""
-        cmd = _build_pro_test_command(
-            "test/database.js | Test database key methods", "js", js_runner="mocha"
+    def test_fail_to_pass_fails(self) -> None:
+        parsed = TestResults(
+            passed=1,
+            total=2,
+            details=[
+                {"test": "TestFoo", "passed": False, "status": "FAILED"},
+                {"test": "TestBar", "passed": True, "status": "PASSED"},
+            ],
         )
-        assert "npx mocha" in cmd
-        assert "test/database.js" in cmd
-        assert "--grep" in cmd
-        assert "Test database key methods" in cmd
+        ftp, ptp = _match_test_results(parsed, ["TestFoo"], ["TestBar"])
+        assert ftp.passed == 0
+        assert ftp.total == 1
+        assert ptp.passed == 1
+        assert ptp.total == 1
 
-    def test_ts_test_suite_format(self) -> None:
-        """TS 'test suite' format runs the whole file without -t filter."""
-        cmd = _build_pro_test_command(
-            "test/tests/LoginFacadeTest.js | test suite", "ts", js_runner="jest"
+    def test_substring_matching(self) -> None:
+        """Tests that weren't found by exact match fall back to substring."""
+        parsed = TestResults(
+            passed=1,
+            total=1,
+            details=[
+                {
+                    "test": "test/database.js | Test database key methods",
+                    "passed": True,
+                    "status": "PASSED",
+                },
+            ],
         )
-        assert "npx jest" in cmd
-        assert "test/tests/LoginFacadeTest.js" in cmd
-        assert "-t" not in cmd
-
-    def test_mocha_test_suite_format(self) -> None:
-        """Mocha 'test suite' runs whole file without --grep."""
-        cmd = _build_pro_test_command(
-            "test/tests/LoginFacadeTest.js | test suite", "js", js_runner="mocha"
+        ftp, _ptp = _match_test_results(
+            parsed,
+            ["test/database.js | Test database key methods"],
+            [],
         )
-        assert "npx mocha" in cmd
-        assert "test/tests/LoginFacadeTest.js" in cmd
-        assert "--grep" not in cmd
+        assert ftp.passed == 1
+        assert ftp.total == 1
 
-    def test_ospec_runner_file(self) -> None:
-        """ospec runs test files directly with node."""
-        cmd = _build_pro_test_command(
-            "test/tests/LoginFacadeTest.js | test suite", "ts", js_runner="ospec"
+    def test_empty_lists(self) -> None:
+        parsed = TestResults(passed=0, total=0, details=[])
+        ftp, ptp = _match_test_results(parsed, [], [])
+        assert ftp.total == 0
+        assert ptp.total == 0
+
+    def test_test_not_found(self) -> None:
+        parsed = TestResults(
+            passed=1,
+            total=1,
+            details=[
+                {"test": "TestFoo", "passed": True, "status": "PASSED"},
+            ],
         )
-        assert "node" in cmd
-        assert "test/tests/LoginFacadeTest.js" in cmd
+        ftp, _ptp = _match_test_results(parsed, ["TestMissing"], [])
+        assert ftp.passed == 0
+        assert ftp.total == 1
+        assert ftp.details[0]["status"] == "NOT_FOUND"
 
-    def test_ava_runner(self) -> None:
-        """ava runner uses -m for test name matching."""
-        cmd = _build_pro_test_command("test/database.js | Test db methods", "js", js_runner="ava")
-        assert "npx ava" in cmd
-        assert "test/database.js" in cmd
-        assert "-m" in cmd
-        assert "Test db methods" in cmd
-
-    def test_npm_fallback_with_file(self) -> None:
-        """npm fallback passes file via -- to npm test."""
-        cmd = _build_pro_test_command(
-            "test/tests/LoginFacadeTest.js | test suite", "ts", js_runner="npm"
+    def test_multiple_fail_to_pass(self) -> None:
+        parsed = TestResults(
+            passed=2,
+            total=3,
+            details=[
+                {"test": "TestA", "passed": True, "status": "PASSED"},
+                {"test": "TestB", "passed": True, "status": "PASSED"},
+                {"test": "TestC", "passed": False, "status": "FAILED"},
+            ],
         )
-        assert "npm test" in cmd
-        assert "test/tests/LoginFacadeTest.js" in cmd
+        ftp, _ptp = _match_test_results(parsed, ["TestA", "TestB", "TestC"], [])
+        assert ftp.passed == 2
+        assert ftp.total == 3
 
-    def test_npm_fallback_no_file(self) -> None:
-        """npm fallback with no file runs plain npm test."""
-        cmd = _build_pro_test_command("should work", "js", js_runner="npm")
-        assert "npm test" in cmd
 
-    def test_prebuilt_conda_activation(self) -> None:
-        cmd = _build_pro_test_command("TestFoo", "go", uses_prebuilt=True)
-        assert "conda activate testbed" in cmd
+class TestParseTestOutputLocally:
+    """Tests for _parse_test_output_locally."""
 
-    def test_unknown_language_fallback(self) -> None:
-        cmd = _build_pro_test_command("test_something", "rust")
-        assert "test_something" in cmd
+    def test_parses_mocha_json(self) -> None:
+        """Test parsing mocha JSON output (NodeBB style)."""
+        mocha_output = json.dumps(
+            {
+                "passes": [
+                    {"file": "test/database.js", "fullTitle": "Test db key methods"},
+                    {"file": "test/meta.js", "fullTitle": "Meta functions"},
+                ],
+                "failures": [
+                    {"file": "test/translator.js", "fullTitle": "Translator shim"},
+                ],
+                "pending": [],
+            }
+        )
+
+        # Create a minimal parser.py that handles mocha JSON
+        parser_script = """
+import json
+import sys
+import dataclasses
+from enum import Enum
+from pathlib import Path
+from typing import List
+
+class TestStatus(Enum):
+    PASSED = 1
+    FAILED = 2
+    SKIPPED = 3
+    ERROR = 4
+
+@dataclasses.dataclass
+class TestResult:
+    name: str
+    status: TestStatus
+
+def parse_test_output(stdout_content, stderr_content):
+    results = []
+    try:
+        data = json.loads(stdout_content)
+        for t in data.get("passes", []):
+            results.append(TestResult(name=t.get("fullTitle", ""), status=TestStatus.PASSED))
+        for t in data.get("failures", []):
+            results.append(TestResult(name=t.get("fullTitle", ""), status=TestStatus.FAILED))
+    except json.JSONDecodeError:
+        pass
+    return results
+
+def export_to_json(results, output_path):
+    json_results = {
+        "tests": [
+            {"name": r.name, "status": r.status.name} for r in results
+        ]
+    }
+    with open(output_path, "w") as f:
+        json.dump(json_results, f)
+
+def main(stdout_path, stderr_path, output_path):
+    with open(stdout_path) as f:
+        stdout_content = f.read()
+    with open(stderr_path) as f:
+        stderr_content = f.read()
+    results = parse_test_output(stdout_content, stderr_content)
+    export_to_json(results, output_path)
+
+if __name__ == "__main__":
+    main(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]))
+"""
+
+        result = _parse_test_output_locally(parser_script, mocha_output, "", "test-instance")
+        assert result.total == 3
+        assert result.passed == 2
+
+    def test_handles_parser_error(self) -> None:
+        """Test that parser errors are handled gracefully."""
+        bad_parser = "raise ValueError('broken')"
+        result = _parse_test_output_locally(bad_parser, "output", "err", "test")
+        assert result.total == 0
+        assert result.passed == 0
+
+    def test_handles_empty_output(self) -> None:
+        """Test parsing with no test output."""
+        parser_script = """
+import json
+import sys
+from pathlib import Path
+
+def main(stdout_path, stderr_path, output_path):
+    with open(output_path, "w") as f:
+        json.dump({"tests": []}, f)
+
+if __name__ == "__main__":
+    main(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]))
+"""
+        result = _parse_test_output_locally(parser_script, "", "", "test")
+        assert result.total == 0
+        assert result.passed == 0
+
+
+class TestRunOfficialTests:
+    """Tests for _run_official_tests orchestration."""
+
+    @pytest.mark.asyncio
+    async def test_runs_script_in_container(self) -> None:
+        """Test that run_script.sh is written to container and executed."""
+        env = MagicMock()
+        env.uses_prebuilt = True
+        env.write_file = AsyncMock()
+        env.exec_command = AsyncMock(return_value=(0, '{"tests":[]}', ""))
+
+        task = {
+            "instance_id": "test-instance",
+            "selected_test_files_to_run": '["test/foo.js", "test/bar.js"]',
+        }
+
+        # Use a simple parser that outputs empty test list
+        parser = """
+import json
+import sys
+from pathlib import Path
+
+def main(stdout_path, stderr_path, output_path):
+    with open(output_path, "w") as f:
+        json.dump({"tests": []}, f)
+
+if __name__ == "__main__":
+    main(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]))
+"""
+        from mcpbr.benchmarks.swebench_pro import _run_official_tests
+
+        await _run_official_tests(env, task, "#!/bin/bash\necho test", parser)
+
+        # Verify run_script.sh was written to container
+        env.write_file.assert_called_once_with(
+            "run_script.sh", "#!/bin/bash\necho test", workdir="/app"
+        )
+
+        # Verify exec_command was called (chmod + the actual script run)
+        assert env.exec_command.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_handles_no_selected_files(self) -> None:
+        """Test graceful handling when no test files are specified."""
+        env = MagicMock()
+        env.uses_prebuilt = True
+
+        task = {
+            "instance_id": "test-instance",
+            "selected_test_files_to_run": "[]",
+        }
+
+        from mcpbr.benchmarks.swebench_pro import _run_official_tests
+
+        result = await _run_official_tests(env, task, "#!/bin/bash", "parser")
+        assert result.total == 0
+        assert result.passed == 0
+
+    @pytest.mark.asyncio
+    async def test_handles_timeout(self) -> None:
+        """Test graceful handling when test execution times out."""
+        env = MagicMock()
+        env.uses_prebuilt = True
+        env.write_file = AsyncMock()
+        env.exec_command = AsyncMock(
+            side_effect=[
+                (0, "", ""),  # chmod succeeds
+                TimeoutError("timed out"),  # script times out
+            ]
+        )
+
+        task = {
+            "instance_id": "test-instance",
+            "selected_test_files_to_run": '["test/foo.js"]',
+        }
+
+        from mcpbr.benchmarks.swebench_pro import _run_official_tests
+
+        result = await _run_official_tests(env, task, "#!/bin/bash", "parser")
+        assert result.total == 0
+        assert result.passed == 0
 
 
 class TestSWEBenchProDockerImage:
@@ -422,7 +629,7 @@ class TestSWEBenchProEvalResultToDict:
     """Tests for _eval_result_to_dict helper."""
 
     def test_basic_conversion(self) -> None:
-        from mcpbr.evaluation import EvaluationResult, TestResults
+        from mcpbr.evaluation import EvaluationResult
 
         benchmark = SWEBenchProBenchmark()
         result = EvaluationResult(
