@@ -445,6 +445,30 @@ class DockerEnvironmentManager:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, _pull)
 
+    async def _try_pull_image(self, image_name: str) -> str | None:
+        """Try to pull a Docker image by its full name.
+
+        Used for explicit image overrides (e.g., SWE-bench Pro DockerHub images).
+
+        Args:
+            image_name: Full Docker image name (e.g., "dockerhub_user/image:tag").
+
+        Returns:
+            Image name if successful, None if not available.
+        """
+
+        def _pull() -> str | None:
+            try:
+                self.client.images.pull(image_name, platform="linux/amd64")
+                return image_name
+            except docker.errors.ImageNotFound:
+                return None
+            except docker.errors.APIError:
+                return None
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _pull)
+
     async def _ensure_fallback_image(self) -> None:
         """Ensure the fallback Docker image is built."""
         if self._fallback_image_built:
@@ -557,9 +581,16 @@ CMD ["/bin/bash"]
         uses_prebuilt = False
 
         if self.use_prebuilt:
-            image_name = await self._try_pull_prebuilt(instance_id)
-            if image_name:
-                uses_prebuilt = True
+            # Check for explicit image override (e.g., SWE-bench Pro DockerHub images)
+            image_override = task.get("_image_override")
+            if image_override:
+                image_name = await self._try_pull_image(image_override)
+                if image_name:
+                    uses_prebuilt = True
+            if not image_name:
+                image_name = await self._try_pull_prebuilt(instance_id)
+                if image_name:
+                    uses_prebuilt = True
 
         if not image_name:
             await self._ensure_fallback_image()
@@ -574,7 +605,18 @@ CMD ["/bin/bash"]
         unique_suffix = uuid.uuid4().hex[:6]
         container_name = f"mcpbr-{self._session_id}-{instance_id}-{unique_suffix}"
 
-        container_workdir = "/testbed" if uses_prebuilt else "/workspace"
+        # SWE-bench Pro images use /app, standard SWE-bench uses /testbed
+        workdir_override = task.get("_workdir_override")
+        if workdir_override:
+            container_workdir = workdir_override
+        elif uses_prebuilt:
+            container_workdir = "/testbed"
+        else:
+            container_workdir = "/workspace"
+
+        # Some pre-built images set an entrypoint (e.g., /bin/bash) that
+        # conflicts with our "tail -f /dev/null" keep-alive command.
+        has_entrypoint_override = bool(task.get("_image_override"))
 
         def _create_container() -> Container:
             max_retries = 3
@@ -599,9 +641,20 @@ CMD ["/bin/bash"]
                     # Default network mode; sandbox may override
                     network_mode = sandbox_kwargs.pop("network_mode", "bridge")
 
+                    # Override entrypoint for images that set one (e.g.,
+                    # SWE-bench Pro's /bin/bash entrypoint conflicts with
+                    # our "tail -f /dev/null" keep-alive command).
+                    entrypoint_kwargs: dict = {}
+                    if has_entrypoint_override:
+                        entrypoint_kwargs["entrypoint"] = [
+                            "/bin/sh",
+                            "-c",
+                            "tail -f /dev/null",
+                        ]
+
                     container = self.client.containers.run(
                         image_name,
-                        command="tail -f /dev/null",
+                        command="tail -f /dev/null" if not has_entrypoint_override else None,
                         name=container_name,
                         detach=True,
                         platform="linux/amd64" if uses_prebuilt else None,
@@ -617,6 +670,7 @@ CMD ["/bin/bash"]
                             MCPBR_SESSION_LABEL: self._session_id,
                             MCPBR_TIMESTAMP_LABEL: self._session_timestamp,
                         },
+                        **entrypoint_kwargs,
                         **sandbox_kwargs,
                     )
                     return container
@@ -716,8 +770,10 @@ CMD ["/bin/bash"]
         if uses_prebuilt:
             await self._copy_repo_to_workspace(env)
             # Install Claude CLI for running agent inside container
-            await self._install_claude_cli(env)
-            env.claude_cli_installed = True
+            # (skip when running preflight checks or evaluation-only workflows)
+            if not task.get("_skip_cli_install"):
+                await self._install_claude_cli(env)
+                env.claude_cli_installed = True
         else:
             await self._setup_repo(env, repo, base_commit)
 
@@ -742,7 +798,7 @@ CMD ["/bin/bash"]
             return 0
 
     async def _copy_repo_to_workspace(self, env: TaskEnvironment) -> None:
-        """Copy repo from pre-built image /testbed to /workspace for agent access.
+        """Copy repo from pre-built image source dir to /workspace for agent access.
 
         Under high concurrency the Docker filesystem copy can silently produce
         an empty workspace.  This method retries with a sync and, if necessary,
@@ -751,9 +807,13 @@ CMD ["/bin/bash"]
         Args:
             env: Task environment with pre-built image.
         """
+        # The source directory is the container's working directory (e.g.,
+        # /testbed for standard SWE-bench, /app for SWE-bench Pro).
+        source_dir = env.workdir if env.workdir != "/workspace" else "/testbed"
+
         # --- Phase 1: initial copy + verify ---
         exit_code, _stdout, stderr = await env.exec_command(
-            "cp -r /testbed/. /workspace/",
+            f"cp -r {source_dir}/. /workspace/",
             timeout=120,
         )
         if exit_code != 0:
@@ -799,11 +859,11 @@ CMD ["/bin/bash"]
 
         # --- Phase 3: full copy retry ---
         logger.warning(
-            "Workspace still empty after sync retry — re-copying from /testbed "
+            f"Workspace still empty after sync retry — re-copying from {source_dir} "
             f"(instance={env.instance_id})"
         )
         exit_code, _, stderr = await env.exec_command(
-            "cp -r /testbed/. /workspace/",
+            f"cp -r {source_dir}/. /workspace/",
             timeout=120,
         )
         if exit_code != 0:

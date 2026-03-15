@@ -47,6 +47,7 @@ VALID_BENCHMARKS = (
     "longbench",
     "adversarial",
     "codegraph",
+    "swe-bench-pro",
 )
 VALID_INFRASTRUCTURE_MODES = ("local", "azure", "aws", "gcp", "kubernetes", "cloudflare")
 

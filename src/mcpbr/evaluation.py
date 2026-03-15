@@ -1,7 +1,10 @@
 """Evaluation logic for applying patches and running tests."""
 
 import ast
+import contextlib
 import json
+import re
+import shlex
 from dataclasses import dataclass
 from typing import Any
 
@@ -26,6 +29,31 @@ class EvaluationResult:
     fail_to_pass: TestResults | None = None
     pass_to_pass: TestResults | None = None
     error: str | None = None
+
+
+def get_test_list_field(task: dict[str, Any], field_name: str) -> str:
+    """Get a test list field from a task, checking both lowercase and uppercase names.
+
+    SWE-bench uses FAIL_TO_PASS/PASS_TO_PASS while SWE-bench Pro uses
+    fail_to_pass/pass_to_pass. This helper provides backward-compatible access.
+
+    Args:
+        task: Task dictionary.
+        field_name: Field name in lowercase (e.g., "fail_to_pass").
+
+    Returns:
+        Field value as string, or "[]" if not found.
+    """
+    # Try lowercase first (SWE-bench Pro convention)
+    value = task.get(field_name)
+    if value is not None:
+        return str(value)
+    # Fall back to uppercase (SWE-bench convention)
+    upper_name = field_name.upper()
+    value = task.get(upper_name)
+    if value is not None:
+        return str(value)
+    return "[]"
 
 
 def parse_test_list(test_str: str) -> list[str]:
@@ -209,6 +237,17 @@ async def run_tests(
     )
 
 
+def _normalize_test_id(test: str) -> str:
+    """Normalize a test identifier for shell-safe command construction.
+
+    Currently a no-op pass-through. SWE-bench Pro test IDs already contain
+    the correct literal sequences (e.g. ``\\u2026`` as 7 ASCII characters)
+    that match what pytest uses in its node IDs. Converting them to actual
+    unicode characters would break matching.
+    """
+    return test
+
+
 def _build_test_command(test: str, uses_prebuilt: bool = False, repo: str | None = None) -> str:
     """Build a test command for the given test identifier.
 
@@ -223,9 +262,9 @@ def _build_test_command(test: str, uses_prebuilt: bool = False, repo: str | None
     Returns:
         Shell command string to run the test.
     """
-    import re
-
     from .swebench_test_specs import get_repo_test_command
+
+    test = _normalize_test_id(test)
 
     # Pre-built SWE-bench images use a conda environment called 'testbed'
     if uses_prebuilt:
@@ -263,9 +302,9 @@ def _build_test_command(test: str, uses_prebuilt: bool = False, repo: str | None
         test_module = ".".join(test.split(".")[:2])  # Extract test_utils.tests
         return f"{activate}cd /testbed/tests && ./runtests.py {test_module}"
     elif "::" in test or test.endswith(".py"):
-        return f"{activate}python -m pytest {test} -xvs 2>&1"
+        return f"{activate}python -m pytest {shlex.quote(test)} -xvs 2>&1"
     else:
-        return f"{activate}python -m pytest -k '{test}' -xvs 2>&1"
+        return f"{activate}python -m pytest -k {shlex.quote(test)} -xvs 2>&1"
 
 
 async def _apply_test_patch(
@@ -374,6 +413,16 @@ async def evaluate_patch(
                 resolved=False,
                 patch_applied=True,
                 error="Docker exec timed out during dependency installation",
+            )
+    elif task.get("dockerhub_tag") and task.get("repo_language", "python").lower() == "python":
+        # SWE-bench Pro images install packages into site-packages (not
+        # editable).  After patching we must reinstall so the new code is
+        # importable.
+        with contextlib.suppress(TimeoutError):
+            await env.exec_command(
+                "pip install -e . -q 2>/dev/null || true",
+                timeout=120,
+                workdir=eval_workdir,
             )
 
     repo = task.get("repo")

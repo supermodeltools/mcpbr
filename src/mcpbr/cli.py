@@ -1510,6 +1510,11 @@ def benchmarks() -> None:
         "2,294",
         "Bug fixing (complete benchmark, research)",
     )
+    table.add_row(
+        "swe-bench-pro",
+        "731",
+        "Multi-language bug fixing (Python, Go, TS, JS — harder)",
+    )
     # Other benchmarks
     table.add_row(
         "cybergym",
@@ -1529,6 +1534,189 @@ def benchmarks() -> None:
     console.print("[dim]  mcpbr run -c config.yaml -b swe-bench-full -n 50[/dim]")
     console.print("[dim]  mcpbr run -c config.yaml -b cybergym --level 2[/dim]")
     console.print("[dim]  mcpbr run -c config.yaml -b mcptoolbench[/dim]")
+
+
+@main.command(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option(
+    "-c",
+    "--config",
+    "config_path",
+    type=click.Path(exists=True),
+    help="Path to configuration YAML file (used for Docker settings).",
+)
+@click.option(
+    "-b",
+    "--benchmark",
+    "benchmark_name",
+    type=click.Choice(list(VALID_BENCHMARKS)),
+    default="swe-bench-pro",
+    help="Benchmark to validate (default: swe-bench-pro).",
+)
+@click.option(
+    "-n",
+    "--sample",
+    "sample_size",
+    type=int,
+    default=None,
+    help="Number of instances to validate (default: all).",
+)
+@click.option(
+    "--task",
+    "task_ids",
+    multiple=True,
+    help="Specific task ID(s) to validate.",
+)
+@click.option(
+    "--max-concurrent",
+    type=int,
+    default=4,
+    help="Maximum concurrent validations (default: 4).",
+)
+@click.option(
+    "--fail-fast",
+    is_flag=True,
+    help="Stop on first failure.",
+)
+@click.option(
+    "--filter-category",
+    multiple=True,
+    help="Filter by language or repo substring.",
+)
+@click.option(
+    "--timeout",
+    type=int,
+    default=300,
+    help="Timeout per test in seconds (default: 300).",
+)
+@click.option(
+    "--shard-index",
+    type=int,
+    default=None,
+    help="Shard index for parallel runs (0-based).",
+)
+@click.option(
+    "--shard-total",
+    type=int,
+    default=None,
+    help="Total number of shards for parallel runs.",
+)
+def preflight(
+    config_path: str | None,
+    benchmark_name: str,
+    sample_size: int | None,
+    task_ids: tuple[str, ...],
+    max_concurrent: int,
+    fail_fast: bool,
+    filter_category: tuple[str, ...],
+    timeout: int,
+    shard_index: int | None,
+    shard_total: int | None,
+) -> None:
+    """Validate golden patches pass all tests before evaluation.
+
+    Runs the benchmark's golden (reference) patches against Docker
+    environments and verifies all tests pass. Use this to catch
+    environment or configuration issues before running agent evaluations.
+
+    \b
+    Examples:
+      mcpbr preflight -b swe-bench-pro -n 5          # Check 5 instances
+      mcpbr preflight --fail-fast                      # Stop on first failure
+      mcpbr preflight --filter-category python -n 10   # Check 10 Python instances
+      mcpbr preflight --task django__django-16046      # Check specific instance
+    """
+    from .benchmark_preflight import run_benchmark_preflight
+    from .benchmarks import create_benchmark
+    from .docker_env import DockerEnvironmentManager
+
+    benchmark = create_benchmark(benchmark_name)
+
+    # Load tasks
+    task_id_list = list(task_ids) if task_ids else None
+    category_list = list(filter_category) if filter_category else None
+
+    console.print(f"[bold]Preflight Check: {benchmark_name}[/bold]\n")
+    dataset_name = getattr(benchmark, "dataset", benchmark_name)
+    console.print(f"Loading tasks from {dataset_name}...")
+
+    tasks = benchmark.load_tasks(
+        sample_size=sample_size,
+        task_ids=task_id_list,
+        filter_category=category_list,
+    )
+
+    if not tasks:
+        console.print("[yellow]No tasks found matching the criteria.[/yellow]")
+        return
+
+    # Apply sharding if requested
+    if shard_index is not None and shard_total is not None:
+        if shard_index < 0 or shard_index >= shard_total:
+            console.print(
+                f"[red]Invalid shard-index {shard_index} for shard-total {shard_total}[/red]"
+            )
+            sys.exit(1)
+        tasks = tasks[shard_index::shard_total]
+        console.print(f"Shard {shard_index + 1}/{shard_total}: {len(tasks)} instance(s)\n")
+
+    if not tasks:
+        console.print("[yellow]No tasks in this shard.[/yellow]")
+        return
+
+    console.print(f"Validating {len(tasks)} instance(s)...\n")
+
+    # Create Docker manager
+    docker_manager = DockerEnvironmentManager(use_prebuilt=True)
+
+    try:
+        report = asyncio.run(
+            run_benchmark_preflight(
+                benchmark=benchmark,
+                tasks=tasks,
+                docker_manager=docker_manager,
+                max_concurrent=max_concurrent,
+                timeout=timeout,
+                fail_fast=fail_fast,
+            )
+        )
+    finally:
+        with contextlib.suppress(Exception):
+            docker_manager.cleanup_all_sync()
+
+    # Display results
+    result_table = Table()
+    result_table.add_column("Instance", style="cyan")
+    result_table.add_column("Language")
+    result_table.add_column("Status")
+    result_table.add_column("FTP (pass/total)")
+    result_table.add_column("PTP (pass/total)")
+    result_table.add_column("Error")
+
+    for r in report.results:
+        status_style = {
+            "passed": "[green]PASS[/green]",
+            "failed": "[red]FAIL[/red]",
+            "error": "[yellow]ERROR[/yellow]",
+        }.get(r.status, r.status)
+
+        result_table.add_row(
+            r.instance_id,
+            r.language,
+            status_style,
+            f"{r.fail_to_pass_passed}/{r.fail_to_pass_total}",
+            f"{r.pass_to_pass_passed}/{r.pass_to_pass_total}",
+            r.error or "",
+        )
+
+    console.print(result_table)
+    console.print(
+        f"\n[bold]Summary:[/bold] {report.passed}/{report.total} passed "
+        f"({report.success_rate:.1f}%), "
+        f"{report.failed} failed, {report.errors} errors"
+    )
+
+    if report.failed > 0 or report.errors > 0:
+        sys.exit(1)
 
 
 @main.group(context_settings={"help_option_names": ["-h", "--help"]})

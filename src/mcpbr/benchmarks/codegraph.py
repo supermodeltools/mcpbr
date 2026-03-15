@@ -15,7 +15,7 @@ SUPERMODEL_CACHE_DIR at startup with --no-api-fallback.
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from datasets import load_dataset
@@ -266,7 +266,7 @@ class CodeGraphBenchmark:
             "version": 1,
             "repoName": cache_name,
             "commitHash": None,
-            "savedAt": datetime.now(timezone.utc).isoformat(),
+            "savedAt": datetime.now(UTC).isoformat(),
             "raw": result,
         }
 
@@ -382,7 +382,9 @@ class CodeGraphBenchmark:
             return 1
 
         # Count tool call patterns in the output
-        tool_calls = len(re.findall(r"(?:tool_use|tool_call|<tool>|Tool:|Calling)", text, re.IGNORECASE))
+        tool_calls = len(
+            re.findall(r"(?:tool_use|tool_call|<tool>|Tool:|Calling)", text, re.IGNORECASE)
+        )
         return max(tool_calls, 1)
 
     def get_prebuilt_image(self, task: dict[str, Any]) -> str | None:

@@ -31,3 +31,24 @@ def get_repo_test_command(repo: str) -> str | None:
     Returns None if repo uses standard pytest (handled by existing logic).
     """
     return REPO_TO_TEST_CMD.get(repo)
+
+
+# Language → default test command for SWE-bench Pro multi-language support
+LANGUAGE_TO_TEST_CMD: dict[str, str] = {
+    "python": TEST_PYTEST,
+    "go": "go test -v -count=1",
+    "typescript": "npx jest --verbose --no-cache",
+    "javascript": "npx jest --verbose --no-cache",
+}
+
+
+def get_language_test_command(language: str) -> str | None:
+    """Look up the default test command for a programming language.
+
+    Args:
+        language: Programming language name (lowercase).
+
+    Returns:
+        Default test command string, or None if language is not recognized.
+    """
+    return LANGUAGE_TO_TEST_CMD.get(language.lower())
