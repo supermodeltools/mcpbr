@@ -55,6 +55,10 @@ mcpbr runs controlled experiments: same model, same tasks, same environment - th
 - **Real GitHub issues** from SWE-bench (not toy examples)
 - **Reproducible results** via Docker containers with pinned dependencies
 
+## Blog
+
+- [SWE-bench Verified Is Broken: 5 Things I Found in the Source Code](https://greynewell.com/blog/swe-bench-verified-broken-5-things-source-code/)
+- [SWE-bench Tests Run 6x Faster on ARM64 with Native Containers](https://greynewell.com/blog/swe-bench-arm64-native-containers-6x-faster/)
 
 ## Research Paper
 
