@@ -499,6 +499,16 @@ CRITICAL RULES:
                 file=sys.stderr,
                 flush=True,
             )
+            # Write an empty analysis file so the agent can still complete (with 0 results).
+            # Without this, enhanced_prompt_v2 fails immediately and the task shows as ERROR
+            # rather than FAIL with 0% recall, which obscures whether the code path is working.
+            empty_analysis = {
+                "metadataSummary": {"totalCandidates": 0, "includedCandidates": 0},
+                "deadCodeCandidates": [],
+                "entryPoints": [],
+            }
+            index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            index_path.write_text(json.dumps(empty_analysis, indent=2))
 
         # Start Docker container
         container_name = f"mcpbr-{docker_manager._session_id}-{instance_id}"
