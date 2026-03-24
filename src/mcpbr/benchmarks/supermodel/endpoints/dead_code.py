@@ -170,8 +170,8 @@ for c in candidates:
     if key in entry_set:
         continue
 
-    # Drop low-signal reasons
-    if "Type/interface" in reason or "no references" in reason:
+    # Drop pure type/interface candidates (high FP rate from structural typing)
+    if "Type/interface" in reason:
         continue
 
     # Keep everything else — the graph already did import/call analysis
