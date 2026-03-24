@@ -320,22 +320,16 @@ CRITICAL RULES:
         self,
         task: dict[str, Any],
         docker_manager: DockerEnvironmentManager,
-        is_mcp: bool = False,
     ) -> TaskEnvironment:
         """Create an isolated environment for the task.
 
-        For baseline: clone repo at pre-merge commit, write REPORT.json placeholder.
-        For MCP (enhanced): also call Supermodel API and place analysis JSON.
+        Clones repo at pre-merge commit, calls Supermodel API (or uses cached
+        analysis), places analysis JSON in workdir, writes REPORT.json placeholder.
         """
-        # Swap problem_statement based on condition so the agent gets the right prompt
-        if is_mcp:
-            task["problem_statement"] = task.get(
-                "problem_statement_enhanced", task["problem_statement"]
-            )
-        else:
-            task["problem_statement"] = task.get(
-                "problem_statement_baseline", task["problem_statement"]
-            )
+        # Always use the enhanced prompt (with analysis JSON)
+        task["problem_statement"] = task.get(
+            "problem_statement_enhanced", task["problem_statement"]
+        )
 
         instance_id = task["instance_id"]
         repo = task.get("repo", "")
@@ -406,179 +400,175 @@ CRITICAL RULES:
         report_path = Path(host_workdir) / "REPORT.json"
         report_path.write_text(REPORT_PLACEHOLDER)
 
-        # For MCP (enhanced) condition: place analysis JSON in workdir
+        # Place analysis JSON in workdir for the agent
         # Priority: 1) cached_analysis file from task config, 2) Supermodel API call
-        if is_mcp:
-            try:
-                cached_path = task.get("cached_analysis")
-                if cached_path and Path(cached_path).exists():
-                    with open(cached_path) as f:
-                        analysis_json = json.load(f)
-                    print(
-                        f"  Using cached analysis: {cached_path}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                else:
-                    exclude_patterns = task.get("zip_exclude", [])
-                    analysis_json = await self._get_analysis(
-                        repo_dir,
-                        instance_id,
-                        scope_prefix,
-                        exclude_patterns,
-                        strip_prefix=is_corpus,
-                    )
-
-                # --- Build analysis package for agent consumption ---
-                # Keep reason + confidence so the agent can filter intelligently.
-                # Also preserve metadata summary and entry points.
-                keep_fields = {"file", "name", "type", "reason", "confidence"}
-
-                # Find the candidate key
-                candidate_key = None
-                for k in ("deadCodeCandidates", "candidates", "items"):
-                    if k in analysis_json:
-                        candidate_key = k
-                        break
-
-                all_candidates = analysis_json.get(candidate_key, []) if candidate_key else []
-
-                # Extract metadata and entry points early (needed for filtering)
-                metadata = analysis_json.get("metadata", {})
-
-                # Pre-filter type/interface candidates (high FP rate from structural typing)
-                type_interface_reasons = (
-                    "Type/interface with no references",
-                    "Type with no references",
-                    "Interface with no references",
-                )
-                before_count = len(all_candidates)
-                all_candidates = [
-                    c
-                    for c in all_candidates
-                    if not any(
-                        str(c.get("reason", "")).startswith(r) for r in type_interface_reasons
-                    )
-                ]
-                type_filtered = before_count - len(all_candidates)
-                if type_filtered:
-                    logger.info(
-                        f"Pre-filtered {type_filtered} type/interface candidates for {instance_id}"
-                    )
-
-                # NOTE: Cannot filter by reason — "Exported but file never imported"
-                # contains both true positives AND false positives when
-                # rootFilesCount is high. 16/20 GT items in tyr have this reason.
-                # The signal is polluted at the parser level (import resolution
-                # failure tags real dead code with the same reason as framework-
-                # wired code). See issue #676 for details.
-                root_files = metadata.get("rootFilesCount", 0) or 0
-                reason_filtered = 0
-
-                # Build entry point set for cross-reference filtering
-                ep_set = set()
-                for ep in analysis_json.get("entryPoints", []):
-                    ep_file = ep.get("file", "")
-                    ep_name = ep.get("name", "")
-                    if ep_file and ep_name:
-                        ep_set.add((ep_file, ep_name))
-
-                # Drop candidates that match entry points
-                if ep_set:
-                    before_ep = len(all_candidates)
-                    all_candidates = [
-                        c
-                        for c in all_candidates
-                        if (c.get("file", ""), c.get("name", "")) not in ep_set
-                    ]
-                    ep_filtered = before_ep - len(all_candidates)
-                    if ep_filtered:
-                        logger.info(f"Filtered {ep_filtered} entry point matches for {instance_id}")
-                else:
-                    ep_filtered = 0
-
-                # Slim candidates to keep_fields
-                slimmed = [{k: v for k, v in c.items() if k in keep_fields} for c in all_candidates]
-
-                # Build metadata summary for the agent
-                from collections import Counter
-
-                reason_counts = Counter(c.get("reason", "") for c in all_candidates)
-                confidence_counts = Counter(c.get("confidence", "") for c in all_candidates)
-                entry_points = analysis_json.get("entryPoints", [])
-
-                metadata_summary = {
-                    "totalCandidates": before_count,
-                    "includedCandidates": len(slimmed),
-                    "prefilteredTypeInterfaces": type_filtered,
-                    "reasonFiltered": reason_filtered,
-                    "entryPointFiltered": ep_filtered,
-                    "rootFilesCount": root_files,
-                    "reasonBreakdown": dict(reason_counts.most_common()),
-                    "confidenceBreakdown": dict(confidence_counts.most_common()),
-                }
-
-                # Slim entry points for the whitelist
-                ep_keep = {"file", "name", "type", "reason"}
-                slim_entry_points = [
-                    {k: v for k, v in ep.items() if k in ep_keep} for ep in entry_points[:200]
-                ]
-
-                # Chunk candidates into files of max 200 each (~150 chars/entry
-                # with reason+confidence = ~30K chars = ~7.5K tokens per chunk).
-                # Must stay under 10K token read limit.
-                max_per_file = 200
-                total = len(slimmed)
-
-                base_name = self._endpoint.analysis_filename.replace(".json", "")
-                chunk_refs = []
-                for i in range(0, max(total, 1), max_per_file):
-                    chunk_num = i // max_per_file + 1
-                    chunk = slimmed[i : i + max_per_file]
-                    if not chunk:
-                        break
-                    chunk_name = f"{base_name}_chunk_{chunk_num:03d}.json"
-                    chunk_path = Path(host_workdir) / chunk_name
-
-                    # Per-chunk metadata
-                    chunk_reasons = Counter(c.get("reason", "") for c in chunk)
-                    chunk_data = {
-                        "chunk": chunk_num,
-                        "candidateCount": len(chunk),
-                        "reasonBreakdown": dict(chunk_reasons.most_common()),
-                        "deadCodeCandidates": chunk,
-                    }
-                    chunk_path.write_text(json.dumps(chunk_data, separators=(",", ":")))
-                    chunk_refs.append(
-                        {
-                            "file": chunk_name,
-                            "candidateCount": len(chunk),
-                        }
-                    )
-
-                # Write the index file (what the agent reads first)
-                index_data = {
-                    "metadataSummary": metadata_summary,
-                    "chunkFiles": chunk_refs,
-                    "entryPoints": slim_entry_points,
-                }
-                index_path = Path(host_workdir) / self._endpoint.analysis_filename
-                index_path.write_text(json.dumps(index_data, indent=2))
-
-                logger.info(
-                    f"Placed analysis for {instance_id}: {total} candidates "
-                    f"in {len(chunk_refs)} chunks, {len(slim_entry_points)} entry points "
-                    f"(filtered: {type_filtered} types, {reason_filtered} file-never-imported, "
-                    f"{ep_filtered} entry points)"
-                )
-            except Exception as e:
-                logger.error(f"Failed to get Supermodel analysis for {instance_id}: {e}")
+        try:
+            cached_path = task.get("cached_analysis")
+            if cached_path and Path(cached_path).exists():
+                with open(cached_path) as f:
+                    analysis_json = json.load(f)
                 print(
-                    f"\n*** SUPERMODEL ANALYSIS FAILED for {instance_id} ***\n"
-                    f"{traceback.format_exc()}",
+                    f"  Using cached analysis: {cached_path}",
                     file=sys.stderr,
                     flush=True,
                 )
+            else:
+                exclude_patterns = task.get("zip_exclude", [])
+                analysis_json = await self._get_analysis(
+                    repo_dir,
+                    instance_id,
+                    scope_prefix,
+                    exclude_patterns,
+                    strip_prefix=is_corpus,
+                )
+
+            # --- Build analysis package for agent consumption ---
+            # Keep reason + confidence so the agent can filter intelligently.
+            # Also preserve metadata summary and entry points.
+            keep_fields = {"file", "name", "type", "reason", "confidence"}
+
+            # Find the candidate key
+            candidate_key = None
+            for k in ("deadCodeCandidates", "candidates", "items"):
+                if k in analysis_json:
+                    candidate_key = k
+                    break
+
+            all_candidates = analysis_json.get(candidate_key, []) if candidate_key else []
+
+            # Extract metadata and entry points early (needed for filtering)
+            metadata = analysis_json.get("metadata", {})
+
+            # Pre-filter type/interface candidates (high FP rate from structural typing)
+            type_interface_reasons = (
+                "Type/interface with no references",
+                "Type with no references",
+                "Interface with no references",
+            )
+            before_count = len(all_candidates)
+            all_candidates = [
+                c
+                for c in all_candidates
+                if not any(str(c.get("reason", "")).startswith(r) for r in type_interface_reasons)
+            ]
+            type_filtered = before_count - len(all_candidates)
+            if type_filtered:
+                logger.info(
+                    f"Pre-filtered {type_filtered} type/interface candidates for {instance_id}"
+                )
+
+            # NOTE: Cannot filter by reason — "Exported but file never imported"
+            # contains both true positives AND false positives when
+            # rootFilesCount is high. 16/20 GT items in tyr have this reason.
+            # The signal is polluted at the parser level (import resolution
+            # failure tags real dead code with the same reason as framework-
+            # wired code). See issue #676 for details.
+            root_files = metadata.get("rootFilesCount", 0) or 0
+            reason_filtered = 0
+
+            # Build entry point set for cross-reference filtering
+            ep_set = set()
+            for ep in analysis_json.get("entryPoints", []):
+                ep_file = ep.get("file", "")
+                ep_name = ep.get("name", "")
+                if ep_file and ep_name:
+                    ep_set.add((ep_file, ep_name))
+
+            # Drop candidates that match entry points
+            if ep_set:
+                before_ep = len(all_candidates)
+                all_candidates = [
+                    c
+                    for c in all_candidates
+                    if (c.get("file", ""), c.get("name", "")) not in ep_set
+                ]
+                ep_filtered = before_ep - len(all_candidates)
+                if ep_filtered:
+                    logger.info(f"Filtered {ep_filtered} entry point matches for {instance_id}")
+            else:
+                ep_filtered = 0
+
+            # Slim candidates to keep_fields
+            slimmed = [{k: v for k, v in c.items() if k in keep_fields} for c in all_candidates]
+
+            # Build metadata summary for the agent
+            from collections import Counter
+
+            reason_counts = Counter(c.get("reason", "") for c in all_candidates)
+            confidence_counts = Counter(c.get("confidence", "") for c in all_candidates)
+            entry_points = analysis_json.get("entryPoints", [])
+
+            metadata_summary = {
+                "totalCandidates": before_count,
+                "includedCandidates": len(slimmed),
+                "prefilteredTypeInterfaces": type_filtered,
+                "reasonFiltered": reason_filtered,
+                "entryPointFiltered": ep_filtered,
+                "rootFilesCount": root_files,
+                "reasonBreakdown": dict(reason_counts.most_common()),
+                "confidenceBreakdown": dict(confidence_counts.most_common()),
+            }
+
+            # Slim entry points for the whitelist
+            ep_keep = {"file", "name", "type", "reason"}
+            slim_entry_points = [
+                {k: v for k, v in ep.items() if k in ep_keep} for ep in entry_points[:200]
+            ]
+
+            # Chunk candidates into files of max 200 each (~150 chars/entry
+            # with reason+confidence = ~30K chars = ~7.5K tokens per chunk).
+            # Must stay under 10K token read limit.
+            max_per_file = 200
+            total = len(slimmed)
+
+            base_name = self._endpoint.analysis_filename.replace(".json", "")
+            chunk_refs = []
+            for i in range(0, max(total, 1), max_per_file):
+                chunk_num = i // max_per_file + 1
+                chunk = slimmed[i : i + max_per_file]
+                if not chunk:
+                    break
+                chunk_name = f"{base_name}_chunk_{chunk_num:03d}.json"
+                chunk_path = Path(host_workdir) / chunk_name
+
+                # Per-chunk metadata
+                chunk_reasons = Counter(c.get("reason", "") for c in chunk)
+                chunk_data = {
+                    "chunk": chunk_num,
+                    "candidateCount": len(chunk),
+                    "reasonBreakdown": dict(chunk_reasons.most_common()),
+                    "deadCodeCandidates": chunk,
+                }
+                chunk_path.write_text(json.dumps(chunk_data, separators=(",", ":")))
+                chunk_refs.append(
+                    {
+                        "file": chunk_name,
+                        "candidateCount": len(chunk),
+                    }
+                )
+
+            # Write the index file (what the agent reads first)
+            index_data = {
+                "metadataSummary": metadata_summary,
+                "chunkFiles": chunk_refs,
+                "entryPoints": slim_entry_points,
+            }
+            index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            index_path.write_text(json.dumps(index_data, indent=2))
+
+            logger.info(
+                f"Placed analysis for {instance_id}: {total} candidates "
+                f"in {len(chunk_refs)} chunks, {len(slim_entry_points)} entry points "
+                f"(filtered: {type_filtered} types, {reason_filtered} file-never-imported, "
+                f"{ep_filtered} entry points)"
+            )
+        except Exception as e:
+            logger.error(f"Failed to get Supermodel analysis for {instance_id}: {e}")
+            print(
+                f"\n*** SUPERMODEL ANALYSIS FAILED for {instance_id} ***\n{traceback.format_exc()}",
+                file=sys.stderr,
+                flush=True,
+            )
 
         # Start Docker container
         container_name = f"mcpbr-{docker_manager._session_id}-{instance_id}"
