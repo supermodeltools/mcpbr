@@ -135,7 +135,8 @@ ignore = [
 "tests/**/*.py" = ["S", "T20"]
 "infrastructure/**/*.py" = ["S603", "S607"]
 "src/mcpbr/infrastructure/**/*.py" = ["S603", "S607", "S108"]
-"src/mcpbr/benchmarks/**/*.py" = ["S608"]
+"src/mcpbr/benchmarks/deadcode.py" = ["S608"]
+"src/mcpbr/benchmarks/supermodel/benchmark.py" = ["S608"]
 "scripts/**/*.py" = ["T20", "S"]
 
 [tool.pytest.ini_options]

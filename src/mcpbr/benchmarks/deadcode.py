@@ -1,6 +1,7 @@
 """Dead code detection benchmark implementation."""
 
 import json
+import logging
 import shutil
 import subprocess
 import tempfile
@@ -8,7 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from ..docker_env import DockerEnvironmentManager, TaskEnvironment
+from ._bench_utils import extract_findings_from_text, init_git_workdir, safe_write_file
 from .base import BenchmarkTask
+
+logger = logging.getLogger("mcpbr.deadcode")
 
 # Corpus repository configuration
 CORPUS_REPO = "git@github.com:supermodeltools/dead-code-benchmark-corpus.git"
@@ -37,13 +41,15 @@ def _clone_or_update_corpus(corpus_path: Path | None = None) -> Path:
 
     if corpus_dir.exists() and (corpus_dir / ".git").exists():
         # Update existing repo
-        subprocess.run(
+        result = subprocess.run(
             ["git", "pull", "--quiet"],
             cwd=corpus_dir,
             capture_output=True,
             check=False,
             timeout=120,
         )
+        if result.returncode != 0:
+            logger.warning("git pull failed for corpus (using stale copy): %s", result.stderr)
     else:
         # Clone fresh
         if corpus_dir.exists():
@@ -94,10 +100,17 @@ def _load_corpus_task(
     repo_content: dict[str, str] = {}
     repo_content["REPORT.json"] = REPORT_PLACEHOLDER
 
-    # Walk all TypeScript files
-    for ts_file in src_dir.rglob("*.ts"):
-        rel_path = ts_file.relative_to(task_dir)
-        repo_content[str(rel_path)] = ts_file.read_text()
+    # Walk source files by language
+    lang = ground_truth["metadata"].get("language", "typescript")
+    extensions = {
+        "typescript": ["*.ts", "*.tsx"],
+        "javascript": ["*.js", "*.jsx", "*.mjs"],
+        "python": ["*.py"],
+    }
+    for pattern in extensions.get(lang, ["*.ts", "*.tsx"]):
+        for ts_file in src_dir.rglob(pattern):
+            rel_path = ts_file.relative_to(task_dir)
+            repo_content[str(rel_path)] = ts_file.read_text()
 
     # Include package.json and tsconfig if they exist
     for config_file in ["package.json", "tsconfig.json"]:
@@ -314,16 +327,12 @@ Rules:
 
         # Write all files including REPORT.json
         for file_path, content in repo_content.items():
-            full_path = Path(host_workdir) / file_path
-            full_path.parent.mkdir(parents=True, exist_ok=True)
-            full_path.write_text(content)
+            safe_write_file(host_workdir, file_path, content)
 
         # Write MCP-only files (e.g., pre-computed analysis) only for MCP agent
         if is_mcp:
             for file_path, content in mcp_only_content.items():
-                full_path = Path(host_workdir) / file_path
-                full_path.parent.mkdir(parents=True, exist_ok=True)
-                full_path.write_text(content)
+                safe_write_file(host_workdir, file_path, content)
 
         container_name = f"mcpbr-{docker_manager._session_id}-{instance_id}"
         container_workdir = "/workspace"
@@ -356,33 +365,7 @@ Rules:
         )
 
         # Init git so modifications are tracked
-        subprocess.run(
-            ["git", "init"], cwd=host_workdir, capture_output=True, check=False, timeout=30
-        )
-        subprocess.run(
-            ["git", "config", "user.email", "mcpbr@test.com"],
-            cwd=host_workdir,
-            capture_output=True,
-            check=False,
-            timeout=10,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "MCPBR"],
-            cwd=host_workdir,
-            capture_output=True,
-            check=False,
-            timeout=10,
-        )
-        subprocess.run(
-            ["git", "add", "-A"], cwd=host_workdir, capture_output=True, check=False, timeout=30
-        )
-        subprocess.run(
-            ["git", "commit", "-m", "Initial"],
-            cwd=host_workdir,
-            capture_output=True,
-            check=False,
-            timeout=30,
-        )
+        init_git_workdir(host_workdir)
 
         return env
 
@@ -394,7 +377,6 @@ Rules:
     ) -> dict[str, Any]:
         """Evaluate by reading REPORT.json from the workspace."""
         expected_dead = task.get("dead_code", [])
-        expected_alive = task.get("alive_code", [])
 
         # Read REPORT.json from host (faster than docker exec)
         report_path = Path(env.host_workdir) / "REPORT.json"
@@ -415,10 +397,9 @@ Rules:
         # Calculate metrics
         found_set = {(f.get("file", ""), f.get("name", "")) for f in agent_findings}
         dead_set = {(d.get("file", ""), d.get("name", "")) for d in expected_dead}
-        alive_set = {(a.get("file", ""), a.get("name", "")) for a in expected_alive}
 
         tp = len(found_set & dead_set)
-        fp = len(found_set & alive_set)
+        fp = len(found_set - dead_set)
         fn = len(dead_set - found_set)
 
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
@@ -454,31 +435,7 @@ Rules:
 
     def _extract_findings_from_text(self, text: str) -> list[dict[str, Any]]:
         """Extract findings from text/patch content."""
-        findings = []
-
-        # Look for JSON with dead_code array
-        try:
-            # Find JSON object in text
-            start = text.find('"dead_code"')
-            if start != -1:
-                # Find the array start
-                arr_start = text.find("[", start)
-                if arr_start != -1:
-                    # Find matching bracket
-                    depth = 0
-                    for i, c in enumerate(text[arr_start:], arr_start):
-                        if c == "[":
-                            depth += 1
-                        elif c == "]":
-                            depth -= 1
-                            if depth == 0:
-                                arr_text = text[arr_start : i + 1]
-                                findings = json.loads(arr_text)
-                                break
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        return findings
+        return extract_findings_from_text(text, "dead_code")
 
     def get_prebuilt_image(self, task: dict[str, Any]) -> str | None:
         return None

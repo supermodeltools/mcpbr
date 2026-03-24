@@ -5,19 +5,21 @@ via endpoint plugins. Uses GitHub PRs for ground truth extraction and the Superm
 API for pre-computed analysis in the enhanced (MCP) condition.
 """
 
+import atexit
 import hashlib
 import json
 import logging
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import traceback
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from ...docker_env import DockerEnvironmentManager, TaskEnvironment
+from .._bench_utils import extract_findings_from_text, init_git_workdir
 from ..base import BenchmarkTask
 from .api_client import call_supermodel_api
 from .endpoints import get_endpoint
@@ -25,12 +27,6 @@ from .evaluation import compute_prf1
 from .git_utils import clone_repo_at_commit, get_pre_merge_commit, zip_repo
 
 logger = logging.getLogger("mcpbr.supermodel")
-
-REPORT_PLACEHOLDER = """{
-  "dead_code": [],
-  "analysis_complete": false
-}
-"""
 
 DEFAULT_GT_DIR = Path.home() / ".cache" / "mcpbr" / "supermodel_ground_truth"
 
@@ -81,6 +77,7 @@ class SupermodelBenchmark:
         self._endpoint = get_endpoint(analysis_type)
         self._loaded_tasks: list[dict[str, Any]] | None = None
         self._work_dir = Path(tempfile.mkdtemp(prefix="mcpbr_supermodel_"))
+        atexit.register(self._cleanup_work_dir)
 
     def load_tasks(
         self,
@@ -189,46 +186,10 @@ class SupermodelBenchmark:
 
         return list(gt)
 
-    @staticmethod
-    def _score_and_cap_candidates(candidates: list[dict], max_count: int = 200) -> list[dict]:
-        """Score each candidate by heuristic confidence and return top N.
-
-        Higher score = more likely to be truly dead code.
-        """
-        import re
-
-        index_barrel_re = re.compile(r"(^|/)index\.(ts|js|tsx|jsx)$")
-        generated_re = re.compile(r"(^|/)(dist|build|\.next|__generated__|generated)/")
-
-        scored = []
-        for c in candidates:
-            score = 0
-            ctype = (c.get("type") or "").lower()
-            cfile = c.get("file") or ""
-            cname = c.get("name") or ""
-
-            # Functions and classes are higher signal
-            if ctype in ("function", "class", "method"):
-                score += 3
-            elif ctype in ("const", "variable"):
-                score += 2
-
-            # Non-index/barrel files are higher signal
-            if not index_barrel_re.search(cfile):
-                score += 2
-
-            # Non-generated paths
-            if not generated_re.search(cfile):
-                score += 1
-
-            # Specific names (longer = less likely to be a common pattern)
-            if len(cname) > 5:
-                score += 1
-
-            scored.append((score, c))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return [c for _, c in scored[:max_count]]
+    def _cleanup_work_dir(self) -> None:
+        """Remove the temporary work directory."""
+        if self._work_dir.exists():
+            shutil.rmtree(self._work_dir, ignore_errors=True)
 
     def _generate_enhanced_problem_statement(self, task_cfg: dict) -> str:
         """Generate problem statement for the enhanced (graph-assisted) condition.
@@ -326,7 +287,8 @@ CRITICAL RULES:
         Clones repo at pre-merge commit, calls Supermodel API (or uses cached
         analysis), places analysis JSON in workdir, writes REPORT.json placeholder.
         """
-        # Always use the enhanced prompt (with analysis JSON)
+        # Copy to avoid mutating the shared task dict (breaks A/B comparisons)
+        task = {**task}
         task["problem_statement"] = task.get(
             "problem_statement_enhanced", task["problem_statement"]
         )
@@ -347,7 +309,7 @@ CRITICAL RULES:
             else:
                 # PR mode: get pre-merge commit from merge commit
                 merge_commit = task["merge_commit"]
-                pre_merge = get_pre_merge_commit(repo, merge_commit)
+                pre_merge = await get_pre_merge_commit(repo, merge_commit)
                 logger.info(f"Pre-merge commit for {instance_id}: {pre_merge[:8]}")
                 await clone_repo_at_commit(repo, pre_merge, str(repo_dir))
 
@@ -396,9 +358,9 @@ CRITICAL RULES:
                 ignore_dangling_symlinks=True,
             )
 
-        # Write REPORT.json placeholder
+        # Write REPORT.json placeholder (key varies by analysis type)
         report_path = Path(host_workdir) / "REPORT.json"
-        report_path.write_text(REPORT_PLACEHOLDER)
+        report_path.write_text(self._endpoint.report_placeholder())
 
         # Place analysis JSON in workdir for the agent
         # Priority: 1) cached_analysis file from task config, 2) Supermodel API call
@@ -464,7 +426,6 @@ CRITICAL RULES:
             # failure tags real dead code with the same reason as framework-
             # wired code). See issue #676 for details.
             root_files = metadata.get("rootFilesCount", 0) or 0
-            reason_filtered = 0
 
             # Build entry point set for cross-reference filtering
             ep_set = set()
@@ -492,8 +453,6 @@ CRITICAL RULES:
             slimmed = [{k: v for k, v in c.items() if k in keep_fields} for c in all_candidates]
 
             # Build metadata summary for the agent
-            from collections import Counter
-
             reason_counts = Counter(c.get("reason", "") for c in all_candidates)
             confidence_counts = Counter(c.get("confidence", "") for c in all_candidates)
             entry_points = analysis_json.get("entryPoints", [])
@@ -502,7 +461,6 @@ CRITICAL RULES:
                 "totalCandidates": before_count,
                 "includedCandidates": len(slimmed),
                 "prefilteredTypeInterfaces": type_filtered,
-                "reasonFiltered": reason_filtered,
                 "entryPointFiltered": ep_filtered,
                 "rootFilesCount": root_files,
                 "reasonBreakdown": dict(reason_counts.most_common()),
@@ -559,8 +517,7 @@ CRITICAL RULES:
             logger.info(
                 f"Placed analysis for {instance_id}: {total} candidates "
                 f"in {len(chunk_refs)} chunks, {len(slim_entry_points)} entry points "
-                f"(filtered: {type_filtered} types, {reason_filtered} file-never-imported, "
-                f"{ep_filtered} entry points)"
+                f"(filtered: {type_filtered} types, {ep_filtered} entry points)"
             )
         except Exception as e:
             logger.error(f"Failed to get Supermodel analysis for {instance_id}: {e}")
@@ -602,31 +559,7 @@ CRITICAL RULES:
         )
 
         # Init git so the harness can track modifications
-        subprocess.run(["git", "init"], cwd=host_workdir, capture_output=True, check=False)
-        subprocess.run(
-            ["git", "config", "user.email", "mcpbr@test.com"],
-            cwd=host_workdir,
-            capture_output=True,
-            check=False,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "MCPBR"],
-            cwd=host_workdir,
-            capture_output=True,
-            check=False,
-        )
-        subprocess.run(
-            ["git", "add", "-A"],
-            cwd=host_workdir,
-            capture_output=True,
-            check=False,
-        )
-        subprocess.run(
-            ["git", "commit", "-m", "Initial"],
-            cwd=host_workdir,
-            capture_output=True,
-            check=False,
-        )
+        init_git_workdir(host_workdir)
 
         return env
 
@@ -701,7 +634,7 @@ CRITICAL RULES:
             try:
                 with open(report_path) as f:
                     report = json.load(f)
-                agent_findings = report.get("dead_code", [])
+                agent_findings = report.get(self._endpoint.findings_key, [])
             except (json.JSONDecodeError, OSError):
                 agent_findings = self._extract_findings_from_text(solution)
         else:
@@ -735,25 +668,7 @@ CRITICAL RULES:
 
     def _extract_findings_from_text(self, text: str) -> list[dict[str, Any]]:
         """Extract findings from text/patch content as fallback."""
-        findings: list[dict[str, Any]] = []
-        try:
-            start = text.find('"dead_code"')
-            if start != -1:
-                arr_start = text.find("[", start)
-                if arr_start != -1:
-                    depth = 0
-                    for i, c in enumerate(text[arr_start:], arr_start):
-                        if c == "[":
-                            depth += 1
-                        elif c == "]":
-                            depth -= 1
-                            if depth == 0:
-                                arr_text = text[arr_start : i + 1]
-                                findings = json.loads(arr_text)
-                                break
-        except (json.JSONDecodeError, ValueError):
-            pass
-        return findings
+        return extract_findings_from_text(text, self._endpoint.findings_key)
 
     def get_prebuilt_image(self, task: dict[str, Any]) -> str | None:
         return None

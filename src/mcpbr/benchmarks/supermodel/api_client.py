@@ -4,7 +4,9 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import sys
+import tempfile
 import time
 
 logger = logging.getLogger("mcpbr.supermodel")
@@ -50,11 +52,21 @@ async def call_supermodel_api(
         "-H",
         f"Idempotency-Key: {idempotency_key}",
     ]
+
+    # Pass API key via curl config file to avoid exposure in process table (ps aux)
+    api_key_config_path: str | None = None
     if api_key:
-        headers.extend(["-H", f"X-Api-Key: {api_key}"])
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".cfg", prefix="mcpbr_curl_", delete=False
+        ) as api_key_fd:
+            api_key_fd.write(f'header = "X-Api-Key: {api_key}"\n')
+            api_key_config_path = api_key_fd.name
+        os.chmod(api_key_config_path, 0o600)
 
     # Initial request with file upload
     upload_cmd = ["curl", "-s", "-X", "POST", url, "-F", f"file=@{zip_path}", *headers]
+    if api_key_config_path:
+        upload_cmd.extend(["--config", api_key_config_path])
 
     start_time = time.time()
     print(
@@ -71,7 +83,10 @@ async def call_supermodel_api(
     if proc.returncode != 0:
         raise RuntimeError(f"Supermodel API request failed: {stderr.decode()}")
 
-    response = json.loads(stdout.decode())
+    try:
+        response = json.loads(stdout.decode())
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Non-JSON response from Supermodel API: {stdout.decode()[:500]}") from e
 
     # Poll if async — use lightweight requests (1-byte dummy file instead of
     # re-uploading the full zip). The API recognizes the idempotency key and
@@ -87,8 +102,6 @@ async def call_supermodel_api(
 
             # Create poll dummy on first iteration only
             if poll_dummy_path is None:
-                import tempfile
-
                 with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as poll_dummy:
                     poll_dummy.write(b"\n")
                     poll_dummy_path = poll_dummy.name
@@ -103,6 +116,8 @@ async def call_supermodel_api(
                 f"file=@{poll_dummy_path}",
                 *headers,
             ]
+            if api_key_config_path:
+                poll_cmd.extend(["--config", api_key_config_path])
 
             retry_after = response.get("retryAfter", 10)
             poll_count += 1
@@ -123,12 +138,17 @@ async def call_supermodel_api(
 
             if proc.returncode != 0:
                 raise RuntimeError(f"Supermodel API poll failed: {stderr.decode()}")
-            response = json.loads(stdout.decode())
+            try:
+                response = json.loads(stdout.decode())
+            except json.JSONDecodeError as e:
+                raise RuntimeError(
+                    f"Non-JSON poll response from Supermodel API: {stdout.decode()[:500]}"
+                ) from e
     finally:
         if poll_dummy_path is not None:
-            import os as _os
-
-            _os.unlink(poll_dummy_path)
+            os.unlink(poll_dummy_path)
+        if api_key_config_path is not None:
+            os.unlink(api_key_config_path)
 
     elapsed = time.time() - start_time
 

@@ -41,6 +41,11 @@ class EndpointPlugin(ABC):
         return f"supermodel_{self.name}_analysis.json"
 
     @property
+    def findings_key(self) -> str:
+        """Key in REPORT.json where findings are stored (e.g. 'dead_code')."""
+        return self.name
+
+    @property
     def key_fields(self) -> tuple[str, str]:
         """Tuple field names for evaluation set comparison.
 
@@ -61,6 +66,10 @@ class EndpointPlugin(ABC):
 
         Returns a list of dicts with keys matching self.key_fields.
         """
+
+    def report_placeholder(self) -> str:
+        """Return a JSON placeholder for REPORT.json using this endpoint's findings key."""
+        return f'{{\n  "{self.findings_key}": [],\n  "analysis_complete": false\n}}\n'
 
     def parse_api_response(self, response: dict) -> dict:
         """Transform raw API response into the JSON file placed in workdir for Claude.

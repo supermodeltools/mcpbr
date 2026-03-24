@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import subprocess
 
 logger = logging.getLogger("mcpbr.supermodel")
 
@@ -68,7 +67,7 @@ async def clone_repo_at_commit(repo: str, commit: str, dest: str) -> None:
         raise RuntimeError(f"Checkout failed: {stderr.decode()}")
 
 
-def get_pre_merge_commit(repo: str, merge_commit: str) -> str:
+async def get_pre_merge_commit(repo: str, merge_commit: str) -> str:
     """Get the first parent of a merge commit (pre-merge state).
 
     Args:
@@ -78,14 +77,19 @@ def get_pre_merge_commit(repo: str, merge_commit: str) -> str:
     Returns:
         SHA of the first parent commit.
     """
-    result = subprocess.run(
-        ["gh", "api", f"repos/{repo}/commits/{merge_commit}", "--jq", ".parents[0].sha"],
-        capture_output=True,
-        text=True,
+    proc = await asyncio.create_subprocess_exec(
+        "gh",
+        "api",
+        f"repos/{repo}/commits/{merge_commit}",
+        "--jq",
+        ".parents[0].sha",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to get parent of {merge_commit}: {result.stderr}")
-    return result.stdout.strip()
+    stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+    if proc.returncode != 0:
+        raise RuntimeError(f"Failed to get parent of {merge_commit}: {stderr.decode()}")
+    return stdout.decode().strip()
 
 
 async def zip_repo(

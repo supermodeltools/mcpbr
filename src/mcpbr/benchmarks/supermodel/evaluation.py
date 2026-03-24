@@ -1,5 +1,9 @@
 """P/R/F1 set-based evaluation for Supermodel benchmarks."""
 
+import logging
+
+logger = logging.getLogger("mcpbr.supermodel")
+
 
 def normalize_path(filepath: str) -> str:
     """Normalize file path for comparison."""
@@ -38,6 +42,8 @@ def build_comparison_set(
         b = normalize_path(raw_b) if fb in path_like_fields else normalize_name(raw_b)
         if a and b:
             result.add((a, b))
+        elif items:
+            logger.debug("Dropped item with empty field: %s=%r, %s=%r", fa, raw_a, fb, raw_b)
     return result
 
 

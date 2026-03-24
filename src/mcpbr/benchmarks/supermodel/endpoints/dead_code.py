@@ -199,13 +199,11 @@ RULES:
   than a false positive.
 """
 
-    def parse_api_response(self, response: dict, prefilter_types: bool = False) -> dict:
+    def parse_api_response(self, response: dict) -> dict:
         """Pre-filter the API response to remove obvious framework false positives.
 
         Args:
             response: Raw API response dict.
-            prefilter_types: If True, also drop candidates whose reason indicates
-                type/interface with no references (high FP rate from structural typing).
         """
         candidates = response.get("deadCodeCandidates", [])
 
@@ -218,24 +216,14 @@ RULES:
             r"(\.test\.|\.spec\.|\.stories\.|__tests__|__mocks__|"
             r"\.storybook|\.e2e\.|migrations/|\.d\.ts$)"
         )
-        type_interface_reasons = (
-            "Type/interface with no references",
-            "Type with no references",
-            "Interface with no references",
-        )
 
         filtered = []
-        type_filtered_count = 0
         for c in candidates:
             name = c.get("name", "")
             filepath = c.get("file", "")
-            reason = c.get("reason", "")
             if framework_names.match(name):
                 continue
             if framework_files.search(filepath):
-                continue
-            if prefilter_types and any(reason.startswith(r) for r in type_interface_reasons):
-                type_filtered_count += 1
                 continue
             filtered.append(c)
 
@@ -244,7 +232,6 @@ RULES:
         response["metadata"] = dict(response.get("metadata", {}))
         response["metadata"]["filteredCount"] = len(filtered)
         response["metadata"]["rawCount"] = len(candidates)
-        response["metadata"]["typeInterfaceFiltered"] = type_filtered_count
         return response
 
     def extract_ground_truth(
