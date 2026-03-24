@@ -462,7 +462,9 @@ class DockerEnvironmentManager:
                         rm=True,
                     )
                 else:
-                    self.client.images.pull("python:3.11-slim")
+                    self.client.images.pull(
+                        "mcr.microsoft.com/mirror/docker/library/python:3.11-slim"
+                    )
                     self._use_fallback_image()
 
         loop = asyncio.get_event_loop()

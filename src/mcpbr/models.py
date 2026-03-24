@@ -17,7 +17,22 @@ class ModelInfo:
 
 SUPPORTED_MODELS: dict[str, ModelInfo] = {
     # Anthropic models via Claude Code CLI
-    # Claude 4.5 models (latest)
+    # Claude 4.6 models (latest)
+    "claude-opus-4-6": ModelInfo(
+        id="claude-opus-4-6",
+        provider="Anthropic",
+        display_name="Claude Opus 4.6",
+        context_window=200000,
+        notes="Most capable Claude model (March 2026)",
+    ),
+    "claude-sonnet-4-6": ModelInfo(
+        id="claude-sonnet-4-6",
+        provider="Anthropic",
+        display_name="Claude Sonnet 4.6",
+        context_window=200000,
+        notes="Balanced performance and cost (March 2026)",
+    ),
+    # Claude 4.5 models
     "claude-opus-4-5-20251101": ModelInfo(
         id="claude-opus-4-5-20251101",
         provider="Anthropic",
