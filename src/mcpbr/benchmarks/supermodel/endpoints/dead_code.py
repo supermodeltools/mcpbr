@@ -194,9 +194,8 @@ RULES:
 - Type should be one of: function, class, method, const, interface, variable.
 - When in doubt about a candidate, INCLUDE it — missing real dead code is worse
   than a false positive.
-- Do NOT spawn sub-agents or use the Agent tool. Work in a single session —
-  sub-agents write to REPORT.json in separate sessions and corrupt the
-  main session's file-write tracking, causing subsequent writes to fail.
+- Always Read REPORT.json immediately before writing it. If sub-agents have
+  written to it, your cached version is stale and the write will fail.
 """
 
     def parse_api_response(self, response: dict) -> dict:
