@@ -1204,6 +1204,15 @@ async def run_evaluation(
     benchmark_kwargs: dict[str, Any] = {}
     if config.benchmark == "cybergym":
         benchmark_kwargs["level"] = config.cybergym_level
+    elif config.benchmark in ("dead-code", "supermodel"):
+        benchmark_kwargs["resolved_threshold"] = config.resolved_threshold
+        if config.benchmark == "supermodel":
+            benchmark_kwargs["analysis_type"] = config.analysis_type or "dead-code"
+            benchmark_kwargs["tasks"] = config.tasks
+            benchmark_kwargs["supermodel_api_base"] = config.supermodel_api_base
+            benchmark_kwargs["supermodel_api_key"] = config.supermodel_api_key
+            benchmark_kwargs["supermodel_api_timeout"] = config.supermodel_api_timeout
+            benchmark_kwargs["ground_truth_dir"] = config.ground_truth_dir
 
     benchmark = create_benchmark(config.benchmark, **benchmark_kwargs)
 

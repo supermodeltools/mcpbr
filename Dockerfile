@@ -1,5 +1,5 @@
 # Base image for SWE-bench task environments
-FROM python:3.11-slim
+FROM mcr.microsoft.com/mirror/docker/library/python:3.11-slim
 
 # Install comprehensive system dependencies for SWE-bench tasks
 RUN apt-get update && apt-get install -y --no-install-recommends \

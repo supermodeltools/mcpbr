@@ -31,7 +31,28 @@ class ModelPricing:
 # Model pricing database (as of January 2026)
 # Prices are per million tokens (MTok)
 MODEL_PRICING: dict[str, ModelPricing] = {
-    # Claude 4.5 Series (Latest - 2026)
+    # Claude 4.6 Series (Latest - March 2026)
+    "claude-opus-4-6": ModelPricing(
+        model_id="claude-opus-4-6",
+        provider="Anthropic",
+        input_price_per_mtok=5.00,
+        output_price_per_mtok=25.00,
+        supports_prompt_caching=True,
+        cache_creation_price_per_mtok=6.25,
+        cache_read_price_per_mtok=0.50,
+        notes="Most capable Claude 4.6 model",
+    ),
+    "claude-sonnet-4-6": ModelPricing(
+        model_id="claude-sonnet-4-6",
+        provider="Anthropic",
+        input_price_per_mtok=3.00,
+        output_price_per_mtok=15.00,
+        supports_prompt_caching=True,
+        cache_creation_price_per_mtok=3.75,
+        cache_read_price_per_mtok=0.30,
+        notes="Balanced Claude 4.6 model",
+    ),
+    # Claude 4.5 Series
     "claude-opus-4-5-20251101": ModelPricing(
         model_id="claude-opus-4-5-20251101",
         provider="Anthropic",

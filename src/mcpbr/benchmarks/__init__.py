@@ -15,6 +15,7 @@ from .codegraph import CodeGraphBenchmark
 from .codereval import CoderEvalBenchmark
 from .custom import CustomBenchmark
 from .cybergym import CyberGymBenchmark
+from .deadcode import DeadCodeBenchmark
 from .gaia import GAIABenchmark
 from .gsm8k import GSM8KBenchmark
 from .hellaswag import HellaSwagBenchmark
@@ -28,6 +29,7 @@ from .mcptoolbench import MCPToolBenchmark
 from .mlagentbench import MLAgentBenchBenchmark
 from .mmmu import MMMUBenchmark
 from .repoqa import RepoQABenchmark
+from .supermodel.benchmark import SupermodelBenchmark
 from .swebench import SWEBenchmark
 from .terminalbench import TerminalBenchBenchmark
 from .toolbench import ToolBenchBenchmark
@@ -50,6 +52,7 @@ __all__ = [
     "CoderEvalBenchmark",
     "CustomBenchmark",
     "CyberGymBenchmark",
+    "DeadCodeBenchmark",
     "GAIABenchmark",
     "GSM8KBenchmark",
     "HellaSwagBenchmark",
@@ -64,6 +67,7 @@ __all__ = [
     "MMMUBenchmark",
     "RepoQABenchmark",
     "SWEBenchmark",
+    "SupermodelBenchmark",
     "TerminalBenchBenchmark",
     "ToolBenchBenchmark",
     "TruthfulQABenchmark",
@@ -106,6 +110,8 @@ BENCHMARK_REGISTRY: dict[str, type[Benchmark]] = {
     "mmmu": MMMUBenchmark,
     "longbench": LongBenchBenchmark,
     "adversarial": AdversarialBenchmark,
+    "dead-code": DeadCodeBenchmark,  # type: ignore[dict-item]
+    "supermodel": SupermodelBenchmark,  # type: ignore[dict-item]
 }
 
 

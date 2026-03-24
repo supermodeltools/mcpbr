@@ -47,6 +47,8 @@ VALID_BENCHMARKS = (
     "longbench",
     "adversarial",
     "codegraph",
+    "dead-code",
+    "supermodel",
 )
 VALID_INFRASTRUCTURE_MODES = ("local", "azure", "aws", "gcp", "kubernetes", "cloudflare")
 
@@ -870,6 +872,44 @@ class HarnessConfig(BaseModel):
     notify_progress_time_minutes: int = Field(
         default=0,
         description="Send progress notification every N minutes (0 = disabled).",
+    )
+
+    # --- Supermodel Benchmark ---
+    analysis_type: str | None = Field(
+        default=None,
+        description="Supermodel analysis type (dead-code, impact, test-coverage, circular-deps)",
+    )
+
+    tasks: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Task definitions for supermodel benchmark (repos, PRs, commits)",
+    )
+
+    supermodel_api_base: str = Field(
+        default="https://api.supermodel.dev",
+        description="Base URL for the Supermodel API",
+    )
+
+    supermodel_api_key: str | None = Field(
+        default=None,
+        description="API key for Supermodel API (or use SUPERMODEL_API_KEY env var)",
+    )
+
+    supermodel_api_timeout: int = Field(
+        default=900,
+        description="Max seconds to wait for Supermodel API analysis to complete",
+    )
+
+    resolved_threshold: float = Field(
+        default=0.8,
+        ge=0.0,
+        le=1.0,
+        description="Recall threshold to consider a task resolved (must be in [0.0, 1.0])",
+    )
+
+    ground_truth_dir: str | None = Field(
+        default=None,
+        description="Directory to cache ground truth JSON files",
     )
 
     @field_validator("notify_progress_interval", "notify_progress_time_minutes")
