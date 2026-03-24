@@ -14,9 +14,6 @@ TS_PATTERNS = [
     (r"^-\s*export\s+(?:async\s+)?function\s+(\w+)", "function"),
     (r"^-\s*export\s+class\s+(\w+)", "class"),
     (r"^-\s*export\s+const\s+(\w+)\s*[=:]", "const"),
-    (r"^-\s*export\s+interface\s+(\w+)", "interface"),
-    (r"^-\s*export\s+type\s+(\w+)\s*[=<{]", "type"),
-    (r"^-\s*export\s+enum\s+(\w+)", "enum"),
     (r"^-\s*export\s+default\s+(?:async\s+)?function\s+(\w+)", "function"),
     (r"^-\s*export\s+default\s+class\s+(\w+)", "class"),
 ]
