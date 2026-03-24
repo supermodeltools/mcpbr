@@ -60,7 +60,9 @@ class SupermodelBenchmark:
             tasks: List of task config dicts from YAML.
             supermodel_api_base: Base URL for Supermodel API.
             supermodel_api_key: API key (or set SUPERMODEL_API_KEY env var).
-            resolved_threshold: P & R threshold to consider a task 'resolved'.
+            resolved_threshold: Recall threshold to consider a task 'resolved' (precision is
+                               reported but not required — the API returns many valid dead-code
+                               candidates beyond the GT set, so precision is not a fair gate).
             ground_truth_dir: Directory to cache ground truth JSON files.
             supermodel_api_timeout: Max seconds to wait for Supermodel API (default 900).
             **kwargs: Additional keyword arguments (ignored for forward compat).
@@ -645,7 +647,7 @@ CRITICAL RULES:
 
         precision = metrics["precision"]
         recall = metrics["recall"]
-        resolved = precision >= self.resolved_threshold and recall >= self.resolved_threshold
+        resolved = recall >= self.resolved_threshold
 
         # Log results
         print(f"\n{'=' * 50}")
