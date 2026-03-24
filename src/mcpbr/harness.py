@@ -306,6 +306,10 @@ def _create_mcp_agent(
     # Use explicit server config if provided, otherwise fall back to config.mcp_server
     server_config = mcp_server_config if mcp_server_config is not None else config.mcp_server
 
+    # Allow benchmarks to opt out of MCP_PROMPT_SUFFIX (e.g. when the problem_statement
+    # already contains its own MCP guidance that conflicts with the generic suffix).
+    suppress_mcp_suffix = getattr(benchmark, "suppress_mcp_suffix", False)
+
     return create_harness(
         config.agent_harness,
         model=config.model,
@@ -317,6 +321,7 @@ def _create_mcp_agent(
         mcp_logs_dir=mcp_logs_dir,
         thinking_budget=config.thinking_budget,
         claude_code_version=config.claude_code_version,
+        suppress_mcp_suffix=suppress_mcp_suffix,
     )
 
 
@@ -628,9 +633,14 @@ async def _run_mcp_evaluation(
         instance_id = task.get(
             "instance_id", f"{task.get('project', 'unknown')}_{task.get('bug_id', 'unknown')}"
         )
+        # For MCP/enhanced condition, swap in the enhanced problem statement if available.
+        # create_environment makes a local copy with this swap, but agent.solve needs it too.
+        task_for_agent = {**task}
+        if "problem_statement_enhanced" in task_for_agent:
+            task_for_agent["problem_statement"] = task_for_agent["problem_statement_enhanced"]
         agent_result = await asyncio.wait_for(
             agent.solve(
-                task,
+                task_for_agent,
                 env.host_workdir,
                 timeout=config.timeout_seconds,
                 verbose=verbose,
