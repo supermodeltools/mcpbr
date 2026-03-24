@@ -125,10 +125,8 @@ candidates for this codebase. Your job is to FILTER them using the metadata prov
 
 STEP 1: Read `supermodel_dead_code_analysis.json`. It contains:
 - `metadataSummary`: totalCandidates, rootFilesCount, reasonBreakdown, confidenceBreakdown
-- `chunkFiles`: list of chunk files with candidate details
+- `deadCodeCandidates`: all candidates in a single array
 - `entryPoints`: symbols confirmed alive — any candidate matching an entry point is a false positive
-
-If there are chunk files, read ALL of them.
 
 STEP 2: Understand the analysis quality.
 - Check `rootFilesCount` — if it's much higher than expected (>20), the import
@@ -139,44 +137,30 @@ STEP 2: Understand the analysis quality.
 STEP 3: Write a script to filter candidates and produce REPORT.json:
 
 ```python
-import json, glob
+import json
 
 with open("supermodel_dead_code_analysis.json") as f:
-    index = json.load(f)
+    analysis = json.load(f)
 
-# Load entry points as a whitelist
-entry_set = set()
-for ep in index.get("entryPoints", []):
-    entry_set.add((ep.get("file", ""), ep.get("name", "")))
+# Build entry point whitelist
+entry_set = {(ep.get("file", ""), ep.get("name", "")) for ep in analysis.get("entryPoints", [])}
 
-# Load all candidates from chunk files
-candidates = []
-for chunk_ref in index.get("chunkFiles", []):
-    with open(chunk_ref["file"]) as f:
-        chunk = json.load(f)
-    candidates.extend(chunk.get("deadCodeCandidates", []))
-
-# Filter
+# Filter candidates
 dead_code = []
-for c in candidates:
+for c in analysis.get("deadCodeCandidates", []):
     key = (c.get("file", ""), c.get("name", ""))
     reason = c.get("reason", "")
-    confidence = c.get("confidence", "")
 
-    # Drop entry points
     if key in entry_set:
         continue
-
-    # Drop pure type/interface candidates (high FP rate from structural typing)
     if "Type/interface" in reason:
         continue
 
-    # Keep everything else — the graph already did import/call analysis
     dead_code.append({
         "file": c.get("file", ""),
         "name": c.get("name", ""),
         "type": c.get("type", "function"),
-        "reason": reason
+        "reason": reason,
     })
 
 with open("REPORT.json", "w") as f:
