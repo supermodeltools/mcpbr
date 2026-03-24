@@ -478,50 +478,18 @@ CRITICAL RULES:
                 {k: v for k, v in ep.items() if k in ep_keep} for ep in entry_points[:200]
             ]
 
-            # Chunk candidates into files of max 200 each (~150 chars/entry
-            # with reason+confidence = ~30K chars = ~7.5K tokens per chunk).
-            # Must stay under 10K token read limit.
-            max_per_file = 200
-            total = len(slimmed)
-
-            base_name = self._endpoint.analysis_filename.replace(".json", "")
-            chunk_refs = []
-            for i in range(0, max(total, 1), max_per_file):
-                chunk_num = i // max_per_file + 1
-                chunk = slimmed[i : i + max_per_file]
-                if not chunk:
-                    break
-                chunk_name = f"{base_name}_chunk_{chunk_num:03d}.json"
-                chunk_path = Path(host_workdir) / chunk_name
-
-                # Per-chunk metadata
-                chunk_reasons = Counter(c.get("reason", "") for c in chunk)
-                chunk_data = {
-                    "chunk": chunk_num,
-                    "candidateCount": len(chunk),
-                    "reasonBreakdown": dict(chunk_reasons.most_common()),
-                    "deadCodeCandidates": chunk,
-                }
-                chunk_path.write_text(json.dumps(chunk_data, separators=(",", ":")))
-                chunk_refs.append(
-                    {
-                        "file": chunk_name,
-                        "candidateCount": len(chunk),
-                    }
-                )
-
-            # Write the index file (what the agent reads first)
-            index_data = {
+            # Write all candidates directly into a single analysis file.
+            analysis_data = {
                 "metadataSummary": metadata_summary,
-                "chunkFiles": chunk_refs,
+                "deadCodeCandidates": slimmed,
                 "entryPoints": slim_entry_points,
             }
             index_path = Path(host_workdir) / self._endpoint.analysis_filename
-            index_path.write_text(json.dumps(index_data, indent=2))
+            index_path.write_text(json.dumps(analysis_data, indent=2))
 
             logger.info(
-                f"Placed analysis for {instance_id}: {total} candidates "
-                f"in {len(chunk_refs)} chunks, {len(slim_entry_points)} entry points "
+                f"Placed analysis for {instance_id}: {len(slimmed)} candidates, "
+                f"{len(slim_entry_points)} entry points "
                 f"(filtered: {type_filtered} types, {ep_filtered} entry points)"
             )
         except Exception as e:
