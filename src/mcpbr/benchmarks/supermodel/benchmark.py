@@ -40,6 +40,9 @@ class SupermodelBenchmark:
 
     name = "supermodel"
     evaluate_without_patch = True  # Uses REPORT.json, not git diff
+    suppress_mcp_suffix = (
+        True  # enhanced_prompt_v2 provides its own guidance; generic MCP suffix conflicts
+    )
 
     def __init__(
         self,
