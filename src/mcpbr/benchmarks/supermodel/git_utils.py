@@ -1,9 +1,40 @@
 """Git utilities for cloning repos and creating zip archives."""
 
 import asyncio
+import fnmatch
 import logging
+import os
+import zipfile
 
 logger = logging.getLogger("mcpbr.supermodel")
+
+# Binary / media assets that are irrelevant for code analysis.
+# Applied to every zip regardless of per-task zip_exclude config.
+BINARY_EXCLUDE_PATTERNS = [
+    "*.mp4",
+    "*.mov",
+    "*.avi",
+    "*.webm",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.svg",
+    "*.ico",
+    "*.webp",
+    "*.woff",
+    "*.woff2",
+    "*.ttf",
+    "*.eot",
+    "*.otf",
+    "*.pdf",
+    "*.zip",
+    "*.tar",
+    "*.gz",
+    "*.mp3",
+    "*.wav",
+    "*.ogg",
+]
 
 
 async def clone_repo_at_commit(repo: str, commit: str, dest: str) -> None:
@@ -117,18 +148,25 @@ async def zip_repo(
 
     is_git = os.path.isdir(os.path.join(repo_dir, ".git"))
 
+    all_excludes = BINARY_EXCLUDE_PATTERNS + (exclude_patterns or [])
+
     if is_git:
-        return await _zip_repo_git_archive(repo_dir, output_zip, scope_prefix)
+        return await _zip_repo_git_archive(repo_dir, output_zip, scope_prefix, all_excludes)
     else:
-        return await _zip_repo_fallback(repo_dir, output_zip, scope_prefix, exclude_patterns)
+        return await _zip_repo_fallback(repo_dir, output_zip, scope_prefix, all_excludes)
 
 
 async def _zip_repo_git_archive(
     repo_dir: str,
     output_zip: str,
     scope_prefix: str | None = None,
+    exclude_patterns: list[str] | None = None,
 ) -> str:
-    """Create zip using ``git archive`` — only includes tracked files."""
+    """Create zip using ``git archive`` — only includes tracked files.
+
+    If exclude_patterns are provided, rewrites the zip to strip matching entries
+    (git archive has no native exclude support).
+    """
     cmd = ["git", "archive", "--format=zip", "-o", output_zip, "HEAD"]
     if scope_prefix:
         cmd.append(scope_prefix)
@@ -142,7 +180,35 @@ async def _zip_repo_git_archive(
     _, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
     if proc.returncode != 0:
         raise RuntimeError(f"git archive failed: {stderr.decode()}")
+
+    if exclude_patterns:
+        _filter_zip_entries(output_zip, exclude_patterns)
+
     return output_zip
+
+
+def _filter_zip_entries(zip_path: str, patterns: list[str]) -> None:
+    """Rewrite zip in-place, removing entries whose basename matches any glob pattern."""
+    tmp_path = zip_path + ".tmp"
+    removed = 0
+    try:
+        with (
+            zipfile.ZipFile(zip_path, "r") as zin,
+            zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zout,
+        ):
+            for item in zin.infolist():
+                basename = os.path.basename(item.filename)
+                if any(fnmatch.fnmatch(basename, pat) for pat in patterns):
+                    removed += 1
+                    continue
+                zout.writestr(item, zin.read(item.filename))
+        os.replace(tmp_path, zip_path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+    if removed:
+        logger.info(f"Filtered {removed} binary entries from {os.path.basename(zip_path)}")
 
 
 async def _zip_repo_fallback(
