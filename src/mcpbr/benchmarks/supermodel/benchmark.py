@@ -50,7 +50,7 @@ class SupermodelBenchmark:
         tasks: list[dict[str, Any]] | None = None,
         supermodel_api_base: str = "https://api.supermodel.dev",
         supermodel_api_key: str | None = None,
-        resolved_threshold: float = 0.8,
+        resolved_threshold: float = 0.0,
         ground_truth_dir: str | Path | None = None,
         supermodel_api_timeout: int = 900,
         **kwargs: Any,
@@ -628,7 +628,9 @@ CRITICAL RULES:
 
         precision = metrics["precision"]
         recall = metrics["recall"]
-        resolved = recall >= self.resolved_threshold
+        # Dead code uses continuous P/R/F1 metrics, not binary resolved gate.
+        # Return None so the summary shows "-" instead of PASS/FAIL.
+        resolved = None
 
         # Log results
         print(f"\n{'=' * 50}")
@@ -641,7 +643,6 @@ CRITICAL RULES:
         print(f"  Precision: {precision * 100:.1f}%")
         print(f"  Recall: {recall * 100:.1f}%")
         print(f"  F1 Score: {metrics['f1_score'] * 100:.1f}%")
-        print(f"  Resolved: {resolved}")
         print(f"{'=' * 50}\n")
 
         return {

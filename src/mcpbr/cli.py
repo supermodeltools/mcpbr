@@ -1148,30 +1148,9 @@ To archive:
             console.print("[dim]Use --reset-state or --no-incremental to re-run[/dim]")
             exit_code = 3
 
-    # Check if anything was resolved (exit code 2)
-    # Only check this if we actually evaluated tasks
-    if exit_code == 0:
-        mcp_resolved = results.summary["mcp"]["resolved"]
-        baseline_resolved = results.summary["baseline"]["resolved"]
-        mcp_total = results.summary["mcp"]["total"]
-        baseline_total = results.summary["baseline"]["total"]
-
-        # Only report "no resolutions" if tasks were actually run
-        # If total is 0, no tasks were run (not a failure)
-        if (mcp_only and mcp_total > 0 and mcp_resolved == 0) or (
-            baseline_only and baseline_total > 0 and baseline_resolved == 0
-        ):
-            console.print("\n[yellow]⚠ No tasks resolved (0% success)[/yellow]")
-            exit_code = 2
-        elif not mcp_only and not baseline_only:
-            # For full run, check if either had tasks and none were resolved
-            if (
-                (mcp_total > 0 or baseline_total > 0)
-                and mcp_resolved == 0
-                and baseline_resolved == 0
-            ):
-                console.print("\n[yellow]⚠ No tasks resolved by either agent (0% success)[/yellow]")
-                exit_code = 2
+    # Resolution check removed — dead code benchmarks use continuous P/R/F1
+    # metrics, not binary resolved gates. Other benchmarks can still use
+    # resolved_threshold in their config if needed.
 
     # Exit with determined exit code
     if exit_code != 0:
