@@ -44,6 +44,11 @@ SKIP_FILE_PATTERNS = [
     r"\.rs$",
 ]
 
+# Pattern to extract named imports from deleted lines (TypeScript/JavaScript)
+# Matches: -import { foo, bar as baz } from '...'
+# Also: -import type { Foo } from '...'
+_DELETED_NAMED_IMPORT_RE = re.compile(r"^-\s*import\s+(?:type\s+)?\{([^}]+)\}\s+from")
+
 SKIP_NAMES = {
     "default",
     "module",
@@ -218,6 +223,12 @@ RULES:
     ) -> list[dict]:
         diff = self.get_pr_diff(repo, pr_number)
         declarations = _parse_diff(diff, language)
+        # Exclude symbols imported by other deleted files (feature-removal false positives).
+        # In a feature-removal PR many files are deleted together; symbols exported from one
+        # deleted file and imported by another are NOT dead code — they were active within
+        # the feature. Filter them out so they don't inflate false-negative counts.
+        deleted_imports = _parse_deleted_imports(diff)
+        declarations = [d for d in declarations if d.name not in deleted_imports]
         if scope_prefix:
             declarations = [d for d in declarations if d.file.startswith(scope_prefix)]
         return [{"file": d.file, "name": d.name, "type": d.type} for d in declarations]
@@ -263,3 +274,22 @@ def _parse_diff(diff_text: str, language: str = "typescript") -> list[RemovedDec
                 break
 
     return declarations
+
+
+def _parse_deleted_imports(diff_text: str) -> set[str]:
+    """Extract symbol names that appear in deleted import statements.
+
+    Used to filter out false positives from feature-removal PRs: a symbol that
+    is imported by another file being deleted in the same PR is NOT dead code.
+    """
+    imported: set[str] = set()
+    for line in diff_text.split("\n"):
+        if not line.startswith("-") or line.startswith("---"):
+            continue
+        m = _DELETED_NAMED_IMPORT_RE.match(line)
+        if m:
+            for part in m.group(1).split(","):
+                name = part.strip().split(" as ")[0].strip()
+                if name:
+                    imported.add(name)
+    return imported
