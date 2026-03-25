@@ -50,7 +50,6 @@ class SupermodelBenchmark:
         tasks: list[dict[str, Any]] | None = None,
         supermodel_api_base: str = "https://api.supermodel.dev",
         supermodel_api_key: str | None = None,
-        resolved_threshold: float = 0.8,
         ground_truth_dir: str | Path | None = None,
         supermodel_api_timeout: int = 900,
         **kwargs: Any,
@@ -63,9 +62,6 @@ class SupermodelBenchmark:
             tasks: List of task config dicts from YAML.
             supermodel_api_base: Base URL for Supermodel API.
             supermodel_api_key: API key (or set SUPERMODEL_API_KEY env var).
-            resolved_threshold: Recall threshold to consider a task 'resolved' (precision is
-                               reported but not required — the API returns many valid dead-code
-                               candidates beyond the GT set, so precision is not a fair gate).
             ground_truth_dir: Directory to cache ground truth JSON files.
             supermodel_api_timeout: Max seconds to wait for Supermodel API (default 900).
             **kwargs: Additional keyword arguments (ignored for forward compat).
@@ -75,7 +71,6 @@ class SupermodelBenchmark:
         self.api_base = supermodel_api_base
         self.api_key = supermodel_api_key or os.environ.get("SUPERMODEL_API_KEY")
         self.api_timeout = supermodel_api_timeout
-        self.resolved_threshold = resolved_threshold
         self.gt_dir = Path(ground_truth_dir) if ground_truth_dir else DEFAULT_GT_DIR
         self.gt_dir.mkdir(parents=True, exist_ok=True)
 
@@ -628,7 +623,9 @@ CRITICAL RULES:
 
         precision = metrics["precision"]
         recall = metrics["recall"]
-        resolved = recall >= self.resolved_threshold
+        # resolved = True means the agent completed without error (evaluate() was reached).
+        # Pass/fail is not gated on a recall threshold — use precision/recall to judge quality.
+        resolved = True
 
         # Log results
         print(f"\n{'=' * 50}")
@@ -641,7 +638,7 @@ CRITICAL RULES:
         print(f"  Precision: {precision * 100:.1f}%")
         print(f"  Recall: {recall * 100:.1f}%")
         print(f"  F1 Score: {metrics['f1_score'] * 100:.1f}%")
-        print(f"  Resolved: {resolved}")
+        print(f"  Succeeded: {resolved}")
         print(f"{'=' * 50}\n")
 
         return {

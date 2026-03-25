@@ -44,6 +44,14 @@ SKIP_FILE_PATTERNS = [
     r"\.rs$",
 ]
 
+# Patterns for state-machine import parsing of deleted lines
+_IMPORT_OPEN_RE = re.compile(r"^-\s*import\s+(?:type\s+)?(?:\w+\s*,\s*)?\{")
+_IMPORT_SINGLE_RE = re.compile(
+    r"^-\s*import\s+(?:type\s+)?(?:\w+\s*,\s*)?\{([^}]+)\}\s+from\s+['\"]([^'\"]+)['\"]"
+)
+_IMPORT_DEFAULT_RE = re.compile(r"^-\s*import\s+(?:type\s+)?(\w+)\s+from\s+['\"]([^'\"]+)['\"]")
+_IMPORT_FROM_RE = re.compile(r"from\s+['\"]([^'\"]+)['\"]")
+
 SKIP_NAMES = {
     "default",
     "module",
@@ -218,6 +226,14 @@ RULES:
     ) -> list[dict]:
         diff = self.get_pr_diff(repo, pr_number)
         declarations = _parse_diff(diff, language)
+        # Exclude symbols imported by other deleted files (feature-removal false positives).
+        # In a feature-removal PR many files are deleted together; symbols exported from one
+        # deleted file and imported by another are NOT dead code — they were active within
+        # the feature. We key the filter to the module specifier so that a common name like
+        # `Config` is only suppressed when there's an import that plausibly resolves to the
+        # same file as the declaration (basename match), reducing spurious exclusions.
+        deleted_imports = _parse_deleted_imports(diff)
+        declarations = [d for d in declarations if not _is_feature_removal_fp(d, deleted_imports)]
         if scope_prefix:
             declarations = [d for d in declarations if d.file.startswith(scope_prefix)]
         return [{"file": d.file, "name": d.name, "type": d.type} for d in declarations]
@@ -263,3 +279,86 @@ def _parse_diff(diff_text: str, language: str = "typescript") -> list[RemovedDec
                 break
 
     return declarations
+
+
+def _parse_deleted_imports(diff_text: str) -> dict[str, set[str]]:
+    """Parse deleted import statements, returning symbol → set[module_specifier].
+
+    Handles single-line and multi-line named import blocks plus default imports.
+    Capturing the module specifier (the `from '...'` part) lets callers do
+    file-aware filtering rather than just name-based filtering.
+    """
+    # symbol_name -> set of module specifiers that imported it
+    imports: dict[str, set[str]] = {}
+    accumulating = False
+    buf: list[str] = []
+
+    def _add(name: str, spec: str) -> None:
+        name = name.strip().split(" as ")[0].strip()
+        if name:
+            imports.setdefault(name, set()).add(spec)
+
+    def _flush_block(raw: str) -> None:
+        # Extract module specifier from the accumulated block
+        m_from = _IMPORT_FROM_RE.search(raw)
+        spec = m_from.group(1) if m_from else ""
+        brace_open = raw.find("{")
+        brace_close = raw.find("}")
+        if brace_open != -1 and brace_close != -1:
+            names_part = raw[brace_open + 1 : brace_close]
+            for part in names_part.split(","):
+                _add(part, spec)
+
+    for line in diff_text.split("\n"):
+        is_deleted = line.startswith("-") and not line.startswith("---")
+
+        if not accumulating:
+            if not is_deleted:
+                continue
+            # Single-line named import: -import { foo, bar } from '...'
+            m = _IMPORT_SINGLE_RE.match(line)
+            if m:
+                spec = m.group(2)
+                for part in m.group(1).split(","):
+                    _add(part, spec)
+                continue
+            # Default import: -import Foo from '...'
+            m = _IMPORT_DEFAULT_RE.match(line)
+            if m:
+                imports.setdefault(m.group(1), set()).add(m.group(2))
+                continue
+            # Start of a multi-line named import block
+            if _IMPORT_OPEN_RE.match(line):
+                accumulating = True
+                buf = [line[1:]]  # strip leading '-'
+                continue
+        else:
+            if is_deleted:
+                buf.append(line[1:])
+            joined = " ".join(buf)
+            if "}" in joined:
+                accumulating = False
+                _flush_block(joined)
+                buf = []
+
+    return imports
+
+
+def _is_feature_removal_fp(
+    decl: "RemovedDeclaration", deleted_imports: dict[str, set[str]]
+) -> bool:
+    """True if the declaration appears to be a feature-removal false positive.
+
+    A symbol is considered a false positive when another deleted file in the
+    same PR imports it FROM a module whose basename matches the declaration's
+    file. This ties the filter to the actual source file rather than just the
+    name, preventing spurious suppression of unrelated same-named exports.
+    """
+    if decl.name not in deleted_imports:
+        return False
+    decl_stem = re.sub(r"\.(ts|tsx|js|jsx)$", "", decl.file.split("/")[-1])
+    for spec in deleted_imports[decl.name]:
+        spec_stem = re.sub(r"\.(ts|tsx|js|jsx)$", "", spec.rstrip("/").split("/")[-1])
+        if spec_stem and spec_stem == decl_stem:
+            return True
+    return False

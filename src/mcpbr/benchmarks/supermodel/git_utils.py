@@ -34,6 +34,8 @@ BINARY_EXCLUDE_PATTERNS = [
     "*.mp3",
     "*.wav",
     "*.ogg",
+    "*.map",
+    "*.js.map",
 ]
 
 
@@ -187,8 +189,16 @@ async def _zip_repo_git_archive(
     return output_zip
 
 
+_ZIP_COMMENT = b"mcpbr-analysis-v3"
+
+
 def _filter_zip_entries(zip_path: str, patterns: list[str]) -> None:
-    """Rewrite zip in-place, removing entries whose basename matches any glob pattern."""
+    """Rewrite zip in-place, removing entries whose basename matches any glob pattern.
+
+    Always rewrites (even if no entries are removed) to stamp the archive with
+    _ZIP_COMMENT so the resulting hash is stable across git archive versions and
+    acts as a cache-busting version marker.
+    """
     tmp_path = zip_path + ".tmp"
     removed = 0
     try:
@@ -196,6 +206,7 @@ def _filter_zip_entries(zip_path: str, patterns: list[str]) -> None:
             zipfile.ZipFile(zip_path, "r") as zin,
             zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zout,
         ):
+            zout.comment = _ZIP_COMMENT
             for item in zin.infolist():
                 basename = os.path.basename(item.filename)
                 if any(fnmatch.fnmatch(basename, pat) for pat in patterns):
