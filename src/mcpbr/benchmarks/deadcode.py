@@ -145,7 +145,7 @@ class DeadCodeBenchmark:
         self,
         dataset: str | Path = "",
         corpus_path: str | Path | None = None,
-        resolved_threshold: float = 0.8,
+        resolved_threshold: float = 0.0,
     ):
         """Initialize the benchmark.
 
@@ -406,7 +406,9 @@ Rules:
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
-        resolved = precision >= self.resolved_threshold and recall >= self.resolved_threshold
+        # Dead code uses continuous P/R/F1 metrics, not binary resolved gate.
+        # Return None so the summary shows "-" instead of PASS/FAIL.
+        resolved = None
 
         # Log results for visibility
         print(f"\n{'=' * 50}")

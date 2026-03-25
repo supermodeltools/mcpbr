@@ -901,7 +901,7 @@ class HarnessConfig(BaseModel):
     )
 
     resolved_threshold: float = Field(
-        default=0.8,
+        default=0.0,
         ge=0.0,
         le=1.0,
         description="Recall threshold to consider a task resolved (must be in [0.0, 1.0])",

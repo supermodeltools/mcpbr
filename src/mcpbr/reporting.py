@@ -587,20 +587,8 @@ def print_summary(results: "EvaluationResults", console: Console) -> None:
     mcp = results.summary["mcp"]
     baseline = results.summary["baseline"]
 
-    table.add_row(
-        "Resolved",
-        f"{mcp['resolved']}/{mcp['total']}",
-        f"{baseline['resolved']}/{baseline['total']}",
-    )
-    table.add_row(
-        "Resolution Rate",
-        f"{mcp['rate']:.1%}",
-        f"{baseline['rate']:.1%}",
-    )
-
     console.print(table)
     console.print()
-    console.print(f"[bold]Improvement:[/bold] {results.summary['improvement']}")
 
     # Print statistical significance if available
     significance = results.summary.get("significance")
@@ -847,19 +835,23 @@ def print_summary(results: "EvaluationResults", console: Console) -> None:
     task_table.add_column("Error", style="red", max_width=50)
 
     for task in results.tasks:
-        mcp_status = (
-            "[green]PASS[/green]" if task.mcp and task.mcp.get("resolved") else "[red]FAIL[/red]"
-        )
         if task.mcp is None:
             mcp_status = "[dim]-[/dim]"
+        elif task.mcp.get("resolved") is None:
+            mcp_status = "[dim]-[/dim]"
+        elif task.mcp.get("resolved"):
+            mcp_status = "[green]PASS[/green]"
+        else:
+            mcp_status = "[red]FAIL[/red]"
 
-        baseline_status = (
-            "[green]PASS[/green]"
-            if task.baseline and task.baseline.get("resolved")
-            else "[red]FAIL[/red]"
-        )
         if task.baseline is None:
             baseline_status = "[dim]-[/dim]"
+        elif task.baseline.get("resolved") is None:
+            baseline_status = "[dim]-[/dim]"
+        elif task.baseline.get("resolved"):
+            baseline_status = "[green]PASS[/green]"
+        else:
+            baseline_status = "[red]FAIL[/red]"
 
         error_msg = ""
         if task.mcp and task.mcp.get("error"):
