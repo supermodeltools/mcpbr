@@ -534,6 +534,7 @@ class ClaudeCodeHarness:
         mcp_logs_dir: Path | None = None,
         thinking_budget: int | None = None,
         claude_code_version: str | None = None,
+        suppress_mcp_suffix: bool = False,
     ) -> None:
         """Initialize Claude Code harness.
 
@@ -547,11 +548,14 @@ class ClaudeCodeHarness:
             mcp_logs_dir: Directory for MCP server logs. Default: ~/.mcpbr_state/logs
             thinking_budget: Extended thinking token budget. Set to enable thinking mode.
             claude_code_version: Pinned Claude Code version (e.g., '2.1.37').
+            suppress_mcp_suffix: If True, do not append MCP_PROMPT_SUFFIX when an MCP
+                server is active. Use for benchmarks that provide their own MCP guidance
+                in the problem statement (e.g. supermodel dead-code benchmark).
         """
         self.model = model
         self.mcp_server = mcp_server
         self.prompt_template = prompt or DEFAULT_PROMPT
-        if mcp_server and not mcp_server.setup_only:
+        if mcp_server and not mcp_server.setup_only and not suppress_mcp_suffix:
             self.prompt_template += MCP_PROMPT_SUFFIX
         self.max_iterations = max_iterations
         self.verbosity = verbosity
@@ -1368,6 +1372,7 @@ def create_harness(
     mcp_logs_dir: Path | None = None,
     thinking_budget: int | None = None,
     claude_code_version: str | None = None,
+    suppress_mcp_suffix: bool = False,
 ) -> AgentHarness:
     """Factory function to create an agent harness.
 
@@ -1405,6 +1410,7 @@ def create_harness(
         mcp_logs_dir=mcp_logs_dir,
         thinking_budget=thinking_budget,
         claude_code_version=claude_code_version,
+        suppress_mcp_suffix=suppress_mcp_suffix,
     )
     return harness
 

@@ -121,62 +121,43 @@ Do NOT search the codebase. Just read the analysis file, filter, and update REPO
     @property
     def enhanced_prompt_v2(self) -> str:
         return """You are an expert software architect. A static analyzer has pre-computed dead code
-candidates for this codebase. Your job is to FILTER them using the metadata provided.
+candidates for this codebase. Your job is to run a filter script and produce REPORT.json.
 
-STEP 1: Read `supermodel_dead_code_analysis.json`. It contains:
+The file `supermodel_dead_code_analysis.json` in your working directory contains:
 - `metadataSummary`: totalCandidates, rootFilesCount, reasonBreakdown, confidenceBreakdown
-- `chunkFiles`: list of chunk files with candidate details
+- `deadCodeCandidates`: all candidates (may be large — do NOT read the whole file manually)
 - `entryPoints`: symbols confirmed alive — any candidate matching an entry point is a false positive
 
-If there are chunk files, read ALL of them.
-
-STEP 2: Understand the analysis quality.
-- Check `rootFilesCount` — if it's much higher than expected (>20), the import
-  resolver likely failed on many files, meaning "file never imported" candidates
-  have a high false positive rate for framework-wired code.
-- Check `reasonBreakdown` to understand where candidates come from.
-
-STEP 3: Write a script to filter candidates and produce REPORT.json:
+STEP 1: Run this Python script with Bash:
 
 ```python
-import json, glob
+import json
 
 with open("supermodel_dead_code_analysis.json") as f:
-    index = json.load(f)
+    analysis = json.load(f)
 
-# Load entry points as a whitelist
-entry_set = set()
-for ep in index.get("entryPoints", []):
-    entry_set.add((ep.get("file", ""), ep.get("name", "")))
+summary = analysis.get("metadataSummary", {})
+print(f"Total candidates: {summary.get('totalCandidates', '?')}, included: {summary.get('includedCandidates', '?')}")
 
-# Load all candidates from chunk files
-candidates = []
-for chunk_ref in index.get("chunkFiles", []):
-    with open(chunk_ref["file"]) as f:
-        chunk = json.load(f)
-    candidates.extend(chunk.get("deadCodeCandidates", []))
+# Build entry point whitelist
+entry_set = {(ep.get("file", ""), ep.get("name", "")) for ep in analysis.get("entryPoints", [])}
 
-# Filter
+# Filter candidates
 dead_code = []
-for c in candidates:
+for c in analysis.get("deadCodeCandidates", []):
     key = (c.get("file", ""), c.get("name", ""))
     reason = c.get("reason", "")
-    confidence = c.get("confidence", "")
 
-    # Drop entry points
     if key in entry_set:
         continue
-
-    # Drop pure type/interface candidates (high FP rate from structural typing)
     if "Type/interface" in reason:
         continue
 
-    # Keep everything else — the graph already did import/call analysis
     dead_code.append({
         "file": c.get("file", ""),
         "name": c.get("name", ""),
         "type": c.get("type", "function"),
-        "reason": reason
+        "reason": reason,
     })
 
 with open("REPORT.json", "w") as f:
@@ -184,16 +165,13 @@ with open("REPORT.json", "w") as f:
 print(f"Wrote {len(dead_code)} candidates to REPORT.json")
 ```
 
-STEP 4: Run the script, then read REPORT.json to confirm it was written correctly.
+STEP 2: Verify REPORT.json was written by running: `python3 -c "import json; d=json.load(open('REPORT.json')); print(len(d['dead_code']), 'items written')"`
 
 RULES:
-- Do NOT grep the codebase to verify candidates. The static analyzer already
-  performed call graph and dependency analysis — grep produces false negatives
-  when symbol names appear in comments, strings, or type-only imports.
-- Trust the graph. Filter only using the metadata (reason, confidence, entryPoints).
+- Do NOT read supermodel_dead_code_analysis.json manually — it may be very large.
+- Do NOT grep or explore the codebase. Trust the pre-computed analysis.
+- Run the script exactly as shown. Do not modify it.
 - Type should be one of: function, class, method, const, interface, variable.
-- When in doubt about a candidate, INCLUDE it — missing real dead code is worse
-  than a false positive.
 """
 
     def parse_api_response(self, response: dict) -> dict:
