@@ -618,8 +618,22 @@ CRITICAL RULES:
         else:
             agent_findings = self._extract_findings_from_text(solution)
 
+        # Load entry points (confirmed-alive symbols) from the analysis file to
+        # use as the alive set for precision.  FP = findings that are confirmed
+        # alive, not simply "findings not in GT" (which penalises correct dead
+        # code the PR happened not to remove).
+        alive_code: list[dict] | None = None
+        analysis_path = Path(env.host_workdir) / self._endpoint.analysis_filename
+        if analysis_path.exists():
+            try:
+                with open(analysis_path) as f:
+                    analysis_data = json.load(f)
+                alive_code = analysis_data.get("entryPoints", [])
+            except (json.JSONDecodeError, OSError):
+                pass
+
         # Compute P/R/F1
-        metrics = compute_prf1(agent_findings, ground_truth, key_fields)
+        metrics = compute_prf1(agent_findings, ground_truth, key_fields, alive_code=alive_code)
 
         precision = metrics["precision"]
         recall = metrics["recall"]
