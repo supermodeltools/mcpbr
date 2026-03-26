@@ -281,11 +281,14 @@ CRITICAL RULES:
         self,
         task: dict[str, Any],
         docker_manager: DockerEnvironmentManager,
+        is_mcp: bool = True,
     ) -> TaskEnvironment:
         """Create an isolated environment for the task.
 
         Clones repo at pre-merge commit, calls Supermodel API (or uses cached
         analysis), places analysis JSON in workdir, writes REPORT.json placeholder.
+        For baseline runs (is_mcp=False) the analysis file is written to a hidden
+        path so the agent cannot accidentally discover and use it.
         """
         # Copy to avoid mutating the shared task dict (breaks A/B comparisons)
         task = {**task}
@@ -473,13 +476,19 @@ CRITICAL RULES:
                 {k: v for k, v in ep.items() if k in ep_keep} for ep in entry_points[:200]
             ]
 
-            # Write all candidates directly into a single analysis file.
+            # Write analysis file.  For MCP the file goes at the well-known path
+            # that enhanced_prompt_v2 references.  For baseline it goes to a hidden
+            # path so the agent cannot accidentally discover it — but evaluate()
+            # can still read it for the alive-set precision calculation.
             analysis_data = {
                 "metadataSummary": metadata_summary,
                 "deadCodeCandidates": slimmed,
                 "entryPoints": slim_entry_points,
             }
-            index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            if is_mcp:
+                index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            else:
+                index_path = Path(host_workdir) / f".{self._endpoint.analysis_filename}"
             index_path.write_text(json.dumps(analysis_data, indent=2))
 
             logger.info(
@@ -502,7 +511,10 @@ CRITICAL RULES:
                 "deadCodeCandidates": [],
                 "entryPoints": [],
             }
-            index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            if is_mcp:
+                index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            else:
+                index_path = Path(host_workdir) / f".{self._endpoint.analysis_filename}"
             index_path.write_text(json.dumps(empty_analysis, indent=2))
 
         # Start Docker container
@@ -622,8 +634,13 @@ CRITICAL RULES:
         # use as the alive set for precision.  FP = findings that are confirmed
         # alive, not simply "findings not in GT" (which penalises correct dead
         # code the PR happened not to remove).
+        # For baseline runs the file is at the hidden (.filename) path to prevent
+        # the agent from discovering it; check both paths.
         alive_code: list[dict] | None = None
         analysis_path = Path(env.host_workdir) / self._endpoint.analysis_filename
+        hidden_path = Path(env.host_workdir) / f".{self._endpoint.analysis_filename}"
+        if not analysis_path.exists() and hidden_path.exists():
+            analysis_path = hidden_path
         if analysis_path.exists():
             try:
                 with open(analysis_path) as f:
@@ -640,16 +657,17 @@ CRITICAL RULES:
         # resolved = True means the agent completed without error (evaluate() was reached).
         # Pass/fail is not gated on a recall threshold — use precision/recall to judge quality.
         resolved = True
+        fp_mode = "vs alive set" if (alive_code is not None and alive_code) else "vs gt"
 
         # Log results
         print(f"\n{'=' * 50}")
         print(f"SUPERMODEL EVALUATION - {env.instance_id} ({self.analysis_type})")
-        print(f"  Found: {metrics['found']} items")
-        print(f"  Expected: {metrics['expected']} items")
+        print(f"  Found: {metrics['found']} items (unique file+name pairs)")
+        print(f"  Expected: {metrics['expected']} items (GT from PR diff)")
         print(f"  True Positives: {metrics['true_positives']}")
-        print(f"  False Positives: {metrics['false_positives']}")
+        print(f"  False Positives: {metrics['false_positives']} ({fp_mode})")
         print(f"  False Negatives: {metrics['false_negatives']}")
-        print(f"  Precision: {precision * 100:.1f}%")
+        print(f"  Precision: {precision * 100:.1f}% ({fp_mode})")
         print(f"  Recall: {recall * 100:.1f}%")
         print(f"  F1 Score: {metrics['f1_score'] * 100:.1f}%")
         print(f"  Succeeded: {resolved}")
@@ -657,6 +675,7 @@ CRITICAL RULES:
 
         return {
             "resolved": resolved,
+            "fp_mode": fp_mode,
             **metrics,
         }
 

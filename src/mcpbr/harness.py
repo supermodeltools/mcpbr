@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import inspect
 import logging
 import sys
 import threading
@@ -616,7 +617,11 @@ async def _run_mcp_evaluation(
     try:
         # Track Docker environment creation time
         docker_start = time.time()
-        env = await benchmark.create_environment(task, docker_manager)
+        _ce_sig = inspect.signature(benchmark.create_environment)
+        if "is_mcp" in _ce_sig.parameters:
+            env = await benchmark.create_environment(task, docker_manager, is_mcp=True)  # type: ignore[call-arg]
+        else:
+            env = await benchmark.create_environment(task, docker_manager)
         docker_end = time.time()
         if profiler:
             profiler.record_docker_startup(docker_end - docker_start)
@@ -802,7 +807,11 @@ async def _run_baseline_evaluation(
     try:
         # Track Docker environment creation time
         docker_start = time.time()
-        env = await benchmark.create_environment(task, docker_manager)
+        _ce_sig = inspect.signature(benchmark.create_environment)
+        if "is_mcp" in _ce_sig.parameters:
+            env = await benchmark.create_environment(task, docker_manager, is_mcp=False)  # type: ignore[call-arg]
+        else:
+            env = await benchmark.create_environment(task, docker_manager)
         docker_end = time.time()
         if profiler:
             profiler.record_docker_startup(docker_end - docker_start)
