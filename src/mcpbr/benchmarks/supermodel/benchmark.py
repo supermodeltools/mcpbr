@@ -6,7 +6,6 @@ API for pre-computed analysis in the enhanced (MCP) condition.
 """
 
 import atexit
-import hashlib
 import json
 import logging
 import os
@@ -28,8 +27,6 @@ from .git_utils import clone_repo_at_commit, get_pre_merge_commit, zip_repo
 
 logger = logging.getLogger("mcpbr.supermodel")
 
-DEFAULT_GT_DIR = Path.home() / ".cache" / "mcpbr" / "supermodel_ground_truth"
-
 
 class SupermodelBenchmark:
     """Supermodel analysis benchmark with PR-based ground truth.
@@ -50,7 +47,6 @@ class SupermodelBenchmark:
         tasks: list[dict[str, Any]] | None = None,
         supermodel_api_base: str = "https://api.supermodel.dev",
         supermodel_api_key: str | None = None,
-        ground_truth_dir: str | Path | None = None,
         supermodel_api_timeout: int = 900,
         **kwargs: Any,
     ):
@@ -62,7 +58,6 @@ class SupermodelBenchmark:
             tasks: List of task config dicts from YAML.
             supermodel_api_base: Base URL for Supermodel API.
             supermodel_api_key: API key (or set SUPERMODEL_API_KEY env var).
-            ground_truth_dir: Directory to cache ground truth JSON files.
             supermodel_api_timeout: Max seconds to wait for Supermodel API (default 900).
             **kwargs: Additional keyword arguments (ignored for forward compat).
         """
@@ -71,8 +66,6 @@ class SupermodelBenchmark:
         self.api_base = supermodel_api_base
         self.api_key = supermodel_api_key or os.environ.get("SUPERMODEL_API_KEY")
         self.api_timeout = supermodel_api_timeout
-        self.gt_dir = Path(ground_truth_dir) if ground_truth_dir else DEFAULT_GT_DIR
-        self.gt_dir.mkdir(parents=True, exist_ok=True)
 
         self._endpoint = get_endpoint(analysis_type)
         self._loaded_tasks: list[dict[str, Any]] | None = None
@@ -88,10 +81,7 @@ class SupermodelBenchmark:
         filter_category: list[str] | None = None,
         filter_tags: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Load tasks from config and extract ground truth from PR diffs.
-
-        Ground truth is cached in gt_dir to avoid repeated GitHub API calls.
-        """
+        """Load tasks from config and extract ground truth from PR diffs."""
         _ = _level, filter_tags
 
         tasks = []
@@ -137,7 +127,6 @@ class SupermodelBenchmark:
                 "problem_statement_enhanced": self._generate_enhanced_problem_statement(task_cfg),
                 "problem_statement_baseline": self._generate_baseline_problem_statement(task_cfg),
                 "zip_exclude": task_cfg.get("zip_exclude", []),
-                "cached_analysis": task_cfg.get("cached_analysis"),
             }
             tasks.append(task)
 
@@ -167,22 +156,16 @@ class SupermodelBenchmark:
         language: str,
         scope_prefix: str | None,
     ) -> list[dict]:
-        """Load cached ground truth or extract from PR diff."""
-        ep_name = self._endpoint.name
-        gt_path = self.gt_dir / f"{ep_name}_{task_id}.json"
+        """Extract ground truth fresh from PR diff every run.
 
-        if gt_path.exists():
-            with open(gt_path) as f:
-                gt = json.load(f)
-            logger.info(f"Loaded cached GT: {len(gt)} items from {gt_path}")
-            return list(gt)
-
+        GT caching was removed because cached files silently bypassed every
+        fix applied to extract_ground_truth (FP filters, pattern additions,
+        etc.), causing stale GT to persist indefinitely with no invalidation.
+        GT extraction is a single GitHub API call and is cheap to re-run.
+        """
         logger.info(f"Extracting ground truth for {task_id} from PR diff...")
         gt = self._endpoint.extract_ground_truth(repo, pr_number, language, scope_prefix)
-
-        with open(gt_path, "w") as f:
-            json.dump(gt, f, indent=2)
-        logger.info(f"Extracted {len(gt)} ground truth items -> {gt_path}")
+        logger.info(f"Extracted {len(gt)} ground truth items for {task_id}")
 
         return list(gt)
 
@@ -281,11 +264,14 @@ CRITICAL RULES:
         self,
         task: dict[str, Any],
         docker_manager: DockerEnvironmentManager,
+        is_mcp: bool = True,
     ) -> TaskEnvironment:
         """Create an isolated environment for the task.
 
         Clones repo at pre-merge commit, calls Supermodel API (or uses cached
         analysis), places analysis JSON in workdir, writes REPORT.json placeholder.
+        For baseline runs (is_mcp=False) the analysis file is written to a hidden
+        path so the agent cannot accidentally discover and use it.
         """
         # Copy to avoid mutating the shared task dict (breaks A/B comparisons)
         task = {**task}
@@ -363,26 +349,15 @@ CRITICAL RULES:
         report_path.write_text(self._endpoint.report_placeholder())
 
         # Place analysis JSON in workdir for the agent
-        # Priority: 1) cached_analysis file from task config, 2) Supermodel API call
         try:
-            cached_path = task.get("cached_analysis")
-            if cached_path and Path(cached_path).exists():
-                with open(cached_path) as f:
-                    analysis_json = json.load(f)
-                print(
-                    f"  Using cached analysis: {cached_path}",
-                    file=sys.stderr,
-                    flush=True,
-                )
-            else:
-                exclude_patterns = task.get("zip_exclude", [])
-                analysis_json = await self._get_analysis(
-                    repo_dir,
-                    instance_id,
-                    scope_prefix,
-                    exclude_patterns,
-                    strip_prefix=is_corpus,
-                )
+            exclude_patterns = task.get("zip_exclude", [])
+            analysis_json = await self._get_analysis(
+                repo_dir,
+                instance_id,
+                scope_prefix,
+                exclude_patterns,
+                strip_prefix=is_corpus,
+            )
 
             # --- Build analysis package for agent consumption ---
             # Keep reason + confidence so the agent can filter intelligently.
@@ -473,13 +448,19 @@ CRITICAL RULES:
                 {k: v for k, v in ep.items() if k in ep_keep} for ep in entry_points[:200]
             ]
 
-            # Write all candidates directly into a single analysis file.
+            # Write analysis file.  For MCP the file goes at the well-known path
+            # that enhanced_prompt_v2 references.  For baseline it goes to a hidden
+            # path so the agent cannot accidentally discover it — but evaluate()
+            # can still read it for the alive-set precision calculation.
             analysis_data = {
                 "metadataSummary": metadata_summary,
                 "deadCodeCandidates": slimmed,
                 "entryPoints": slim_entry_points,
             }
-            index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            if is_mcp:
+                index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            else:
+                index_path = Path(host_workdir) / f".{self._endpoint.analysis_filename}"
             index_path.write_text(json.dumps(analysis_data, indent=2))
 
             logger.info(
@@ -502,7 +483,10 @@ CRITICAL RULES:
                 "deadCodeCandidates": [],
                 "entryPoints": [],
             }
-            index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            if is_mcp:
+                index_path = Path(host_workdir) / self._endpoint.analysis_filename
+            else:
+                index_path = Path(host_workdir) / f".{self._endpoint.analysis_filename}"
             index_path.write_text(json.dumps(empty_analysis, indent=2))
 
         # Start Docker container
@@ -551,20 +535,14 @@ CRITICAL RULES:
     ) -> dict:
         """Call Supermodel API and return parsed/filtered analysis.
 
-        Results are cached in gt_dir/{task_id}_analysis.json keyed by zip hash
-        so subsequent runs skip the API call.
+        Analysis caching was removed. The zip-hash cache key did not account
+        for changes in API logic (idempotency key version bumps, server-side
+        fixes), so cached results silently served stale data even after
+        server-side fixes were deployed. Each run calls the API fresh; the
+        server-side idempotency key handles deduplication at the API level.
         """
         zip_path = str(self._work_dir / f"{task_id}.zip")
         await zip_repo(str(repo_dir), zip_path, scope_prefix, exclude_patterns)
-
-        # Check cache
-        with open(zip_path, "rb") as f:
-            zip_hash = hashlib.sha256(f.read()).hexdigest()[:12]
-        cache_path = self.gt_dir / f"{task_id}_analysis_{zip_hash}.json"
-        if cache_path.exists():
-            logger.info(f"Using cached analysis: {cache_path}")
-            with open(cache_path) as f:
-                return dict(json.load(f))
 
         raw_response = await call_supermodel_api(
             endpoint_path=self._endpoint.api_path,
@@ -587,10 +565,6 @@ CRITICAL RULES:
                         fp = item.get("file", "")
                         if fp.startswith(prefix):
                             item["file"] = fp[len(prefix) :]
-
-        # Cache the result for future runs
-        cache_path.write_text(json.dumps(result, indent=2))
-        logger.info(f"Cached analysis at {cache_path}")
 
         return result
 
@@ -618,24 +592,44 @@ CRITICAL RULES:
         else:
             agent_findings = self._extract_findings_from_text(solution)
 
+        # Load entry points (confirmed-alive symbols) from the analysis file to
+        # use as the alive set for precision.  FP = findings that are confirmed
+        # alive, not simply "findings not in GT" (which penalises correct dead
+        # code the PR happened not to remove).
+        # For baseline runs the file is at the hidden (.filename) path to prevent
+        # the agent from discovering it; check both paths.
+        alive_code: list[dict] | None = None
+        analysis_path = Path(env.host_workdir) / self._endpoint.analysis_filename
+        hidden_path = Path(env.host_workdir) / f".{self._endpoint.analysis_filename}"
+        if not analysis_path.exists() and hidden_path.exists():
+            analysis_path = hidden_path
+        if analysis_path.exists():
+            try:
+                with open(analysis_path) as f:
+                    analysis_data = json.load(f)
+                alive_code = analysis_data.get("entryPoints", [])
+            except (json.JSONDecodeError, OSError):
+                pass
+
         # Compute P/R/F1
-        metrics = compute_prf1(agent_findings, ground_truth, key_fields)
+        metrics = compute_prf1(agent_findings, ground_truth, key_fields, alive_code=alive_code)
 
         precision = metrics["precision"]
         recall = metrics["recall"]
         # resolved = True means the agent completed without error (evaluate() was reached).
         # Pass/fail is not gated on a recall threshold — use precision/recall to judge quality.
         resolved = True
+        fp_mode = "vs alive set" if (alive_code is not None and alive_code) else "vs gt"
 
         # Log results
         print(f"\n{'=' * 50}")
         print(f"SUPERMODEL EVALUATION - {env.instance_id} ({self.analysis_type})")
-        print(f"  Found: {metrics['found']} items")
-        print(f"  Expected: {metrics['expected']} items")
+        print(f"  Found: {metrics['found']} items (unique file+name pairs)")
+        print(f"  Expected: {metrics['expected']} items (GT from PR diff)")
         print(f"  True Positives: {metrics['true_positives']}")
-        print(f"  False Positives: {metrics['false_positives']}")
+        print(f"  False Positives: {metrics['false_positives']} ({fp_mode})")
         print(f"  False Negatives: {metrics['false_negatives']}")
-        print(f"  Precision: {precision * 100:.1f}%")
+        print(f"  Precision: {precision * 100:.1f}% ({fp_mode})")
         print(f"  Recall: {recall * 100:.1f}%")
         print(f"  F1 Score: {metrics['f1_score'] * 100:.1f}%")
         print(f"  Succeeded: {resolved}")
@@ -643,6 +637,7 @@ CRITICAL RULES:
 
         return {
             "resolved": resolved,
+            "fp_mode": fp_mode,
             **metrics,
         }
 

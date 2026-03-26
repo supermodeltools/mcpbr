@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import inspect
 import logging
 import sys
 import threading
@@ -272,6 +273,12 @@ def agent_result_to_dict(
 
         if getattr(eval_result, "error", None):
             data["eval_error"] = eval_result.error
+
+        # Pass through any extra fields (e.g. precision/recall from custom benchmarks)
+        _known = {"resolved", "patch_applied", "fail_to_pass", "pass_to_pass", "error"}
+        for k, v in vars(eval_result).items():
+            if k not in _known and k not in data:
+                data[k] = v
     else:
         data["resolved"] = False
         data["patch_applied"] = False
@@ -610,7 +617,11 @@ async def _run_mcp_evaluation(
     try:
         # Track Docker environment creation time
         docker_start = time.time()
-        env = await benchmark.create_environment(task, docker_manager)
+        _ce_sig = inspect.signature(benchmark.create_environment)
+        if "is_mcp" in _ce_sig.parameters:
+            env = await benchmark.create_environment(task, docker_manager, is_mcp=True)  # type: ignore[call-arg]
+        else:
+            env = await benchmark.create_environment(task, docker_manager)
         docker_end = time.time()
         if profiler:
             profiler.record_docker_startup(docker_end - docker_start)
@@ -796,7 +807,11 @@ async def _run_baseline_evaluation(
     try:
         # Track Docker environment creation time
         docker_start = time.time()
-        env = await benchmark.create_environment(task, docker_manager)
+        _ce_sig = inspect.signature(benchmark.create_environment)
+        if "is_mcp" in _ce_sig.parameters:
+            env = await benchmark.create_environment(task, docker_manager, is_mcp=False)  # type: ignore[call-arg]
+        else:
+            env = await benchmark.create_environment(task, docker_manager)
         docker_end = time.time()
         if profiler:
             profiler.record_docker_startup(docker_end - docker_start)

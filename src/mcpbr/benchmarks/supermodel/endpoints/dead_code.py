@@ -16,6 +16,9 @@ TS_PATTERNS = [
     (r"^-\s*export\s+const\s+(\w+)\s*[=:]", "const"),
     (r"^-\s*export\s+default\s+(?:async\s+)?function\s+(\w+)", "function"),
     (r"^-\s*export\s+default\s+class\s+(\w+)", "class"),
+    (r"^-\s*export\s+interface\s+(\w+)", "interface"),
+    (r"^-\s*export\s+type\s+(\w+)\s*[={<]", "type"),
+    (r"^-\s*export\s+(?:const\s+)?enum\s+(\w+)", "enum"),
 ]
 
 # Patterns for Python declarations
@@ -160,6 +163,8 @@ for c in analysis.get("deadCodeCandidates", []):
         continue
     if "Type/interface" in reason:
         continue
+    if c.get("confidence") not in ("high", None):
+        continue
 
     dead_code.append({
         "file": c.get("file", ""),
@@ -226,16 +231,17 @@ RULES:
     ) -> list[dict]:
         diff = self.get_pr_diff(repo, pr_number)
         declarations = _parse_diff(diff, language)
-        # Exclude symbols imported by other deleted files (feature-removal false positives).
-        # In a feature-removal PR many files are deleted together; symbols exported from one
-        # deleted file and imported by another are NOT dead code — they were active within
-        # the feature. We key the filter to the module specifier so that a common name like
-        # `Config` is only suppressed when there's an import that plausibly resolves to the
-        # same file as the declaration (basename match), reducing spurious exclusions.
-        deleted_imports = _parse_deleted_imports(diff)
-        declarations = [d for d in declarations if not _is_feature_removal_fp(d, deleted_imports)]
         if scope_prefix:
             declarations = [d for d in declarations if d.file.startswith(scope_prefix)]
+
+        # Filter feature-removal false positives: if a deleted symbol is imported
+        # by another file also deleted in the same PR, it was live code (not dead
+        # code) that was removed together with its consumers.  Such symbols should
+        # not appear in the ground truth because no static-analysis tool would
+        # ever report them as dead pre-merge.  (#714)
+        deleted_imports = _parse_deleted_imports(diff)
+        declarations = [d for d in declarations if not _is_feature_removal_fp(d, deleted_imports)]
+
         return [{"file": d.file, "name": d.name, "type": d.type} for d in declarations]
 
 

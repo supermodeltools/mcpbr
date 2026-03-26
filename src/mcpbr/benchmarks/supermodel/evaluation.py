@@ -1,9 +1,5 @@
 """P/R/F1 set-based evaluation for Supermodel benchmarks."""
 
-import logging
-
-logger = logging.getLogger("mcpbr.supermodel")
-
 
 def normalize_path(filepath: str) -> str:
     """Normalize file path for comparison."""
@@ -42,8 +38,6 @@ def build_comparison_set(
         b = normalize_path(raw_b) if fb in path_like_fields else normalize_name(raw_b)
         if a and b:
             result.add((a, b))
-        elif items:
-            logger.debug("Dropped item with empty field: %s=%r, %s=%r", fa, raw_a, fb, raw_b)
     return result
 
 
@@ -51,6 +45,7 @@ def compute_prf1(
     predictions: list[dict],
     ground_truth: list[dict],
     key_fields: tuple[str, str] = ("file", "name"),
+    alive_code: list[dict] | None = None,
 ) -> dict:
     """Compute precision, recall, F1 from predictions vs ground truth.
 
@@ -58,6 +53,10 @@ def compute_prf1(
         predictions: List of prediction dicts.
         ground_truth: List of ground truth dicts.
         key_fields: Fields to use for set comparison.
+        alive_code: Optional list of confirmed-alive symbols. When provided,
+            false positives are defined as predictions that intersect the alive
+            set (i.e. the agent flagged something confirmed to be in use).
+            When absent, FP = predictions not in ground truth (standard).
 
     Returns:
         Dict with precision, recall, f1_score, tp, fp, fn counts, and resolved boolean.
@@ -66,7 +65,16 @@ def compute_prf1(
     gt_set = build_comparison_set(ground_truth, key_fields)
 
     tp = len(pred_set & gt_set)
-    fp = len(pred_set - gt_set)
+    alive_set: set[tuple[str, str]] = set()
+    if alive_code is not None:
+        alive_set = build_comparison_set(alive_code, key_fields)
+    # Use alive-set FP only when the alive set is non-empty.  An empty alive set
+    # (analysis failure or unsupported endpoint) would give fp=0 trivially and
+    # make precision=1.0 meaningless, so fall back to standard FP in that case.
+    if alive_set:
+        fp = len(pred_set & alive_set)
+    else:
+        fp = len(pred_set - gt_set)
     fn = len(gt_set - pred_set)
 
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
