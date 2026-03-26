@@ -160,6 +160,8 @@ for c in analysis.get("deadCodeCandidates", []):
         continue
     if "Type/interface" in reason:
         continue
+    if c.get("confidence") not in ("high", None):
+        continue
 
     dead_code.append({
         "file": c.get("file", ""),
