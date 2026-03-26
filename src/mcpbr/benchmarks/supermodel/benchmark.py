@@ -127,7 +127,6 @@ class SupermodelBenchmark:
                 "problem_statement_enhanced": self._generate_enhanced_problem_statement(task_cfg),
                 "problem_statement_baseline": self._generate_baseline_problem_statement(task_cfg),
                 "zip_exclude": task_cfg.get("zip_exclude", []),
-                "cached_analysis": task_cfg.get("cached_analysis"),
             }
             tasks.append(task)
 
@@ -350,26 +349,15 @@ CRITICAL RULES:
         report_path.write_text(self._endpoint.report_placeholder())
 
         # Place analysis JSON in workdir for the agent
-        # Priority: 1) cached_analysis file from task config, 2) Supermodel API call
         try:
-            cached_path = task.get("cached_analysis")
-            if cached_path and Path(cached_path).exists():
-                with open(cached_path) as f:
-                    analysis_json = json.load(f)
-                print(
-                    f"  Using cached analysis: {cached_path}",
-                    file=sys.stderr,
-                    flush=True,
-                )
-            else:
-                exclude_patterns = task.get("zip_exclude", [])
-                analysis_json = await self._get_analysis(
-                    repo_dir,
-                    instance_id,
-                    scope_prefix,
-                    exclude_patterns,
-                    strip_prefix=is_corpus,
-                )
+            exclude_patterns = task.get("zip_exclude", [])
+            analysis_json = await self._get_analysis(
+                repo_dir,
+                instance_id,
+                scope_prefix,
+                exclude_patterns,
+                strip_prefix=is_corpus,
+            )
 
             # --- Build analysis package for agent consumption ---
             # Keep reason + confidence so the agent can filter intelligently.

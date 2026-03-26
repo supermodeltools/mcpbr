@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The analysis cache was keyed by zip hash, so server-side idempotency key version bumps did not
   bust it — the server was never reached and old results were served indefinitely. Both caches are
   now removed. GT extraction is a single GitHub API call (cheap). The Supermodel API handles
-  server-side deduplication via the idempotency key. Also removes the `DEFAULT_GT_DIR` constant
-  and `ground_truth_dir` constructor parameter, which existed solely to support the caches.
+  server-side deduplication via the idempotency key. Also removes the `DEFAULT_GT_DIR` constant,
+  `ground_truth_dir` constructor parameter, and the `cached_analysis` task config field — all of
+  which existed solely to support the now-removed caching paths.
 
 - **Dead code benchmark: filter feature-removal false positives from ground truth** (supermodeltools/supermodel-public-api#714):
   The ground truth extractor now applies the existing `_is_feature_removal_fp` filter (which
