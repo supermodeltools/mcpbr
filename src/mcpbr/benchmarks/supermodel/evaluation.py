@@ -65,8 +65,13 @@ def compute_prf1(
     gt_set = build_comparison_set(ground_truth, key_fields)
 
     tp = len(pred_set & gt_set)
+    alive_set: set[tuple[str, str]] = set()
     if alive_code is not None:
         alive_set = build_comparison_set(alive_code, key_fields)
+    # Use alive-set FP only when the alive set is non-empty.  An empty alive set
+    # (analysis failure or unsupported endpoint) would give fp=0 trivially and
+    # make precision=1.0 meaningless, so fall back to standard FP in that case.
+    if alive_set:
         fp = len(pred_set & alive_set)
     else:
         fp = len(pred_set - gt_set)
