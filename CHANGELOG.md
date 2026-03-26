@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dead code benchmark: filter feature-removal false positives from ground truth** (supermodeltools/supermodel-public-api#714):
+  The ground truth extractor now applies the existing `_is_feature_removal_fp` filter (which
+  was implemented but never called). Symbols deleted in a PR that are also imported by other
+  files deleted in the same PR are excluded from GT — they were live code co-removed with
+  their consumers, not dead code. Genuinely orphaned symbols with no deleted importer are
+  kept. This fixes 0-recall scores for PRs like n8n #23572 and prisma #28485 where whole
+  files were removed as part of a feature deletion.
+
 ## [0.14.0] - 2026-02-13
 
 ### Added
