@@ -6,7 +6,6 @@ API for pre-computed analysis in the enhanced (MCP) condition.
 """
 
 import atexit
-import hashlib
 import json
 import logging
 import os
@@ -28,8 +27,6 @@ from .git_utils import clone_repo_at_commit, get_pre_merge_commit, zip_repo
 
 logger = logging.getLogger("mcpbr.supermodel")
 
-DEFAULT_GT_DIR = Path.home() / ".cache" / "mcpbr" / "supermodel_ground_truth"
-
 
 class SupermodelBenchmark:
     """Supermodel analysis benchmark with PR-based ground truth.
@@ -50,7 +47,6 @@ class SupermodelBenchmark:
         tasks: list[dict[str, Any]] | None = None,
         supermodel_api_base: str = "https://api.supermodel.dev",
         supermodel_api_key: str | None = None,
-        ground_truth_dir: str | Path | None = None,
         supermodel_api_timeout: int = 900,
         **kwargs: Any,
     ):
@@ -62,7 +58,6 @@ class SupermodelBenchmark:
             tasks: List of task config dicts from YAML.
             supermodel_api_base: Base URL for Supermodel API.
             supermodel_api_key: API key (or set SUPERMODEL_API_KEY env var).
-            ground_truth_dir: Directory to cache ground truth JSON files.
             supermodel_api_timeout: Max seconds to wait for Supermodel API (default 900).
             **kwargs: Additional keyword arguments (ignored for forward compat).
         """
@@ -71,8 +66,6 @@ class SupermodelBenchmark:
         self.api_base = supermodel_api_base
         self.api_key = supermodel_api_key or os.environ.get("SUPERMODEL_API_KEY")
         self.api_timeout = supermodel_api_timeout
-        self.gt_dir = Path(ground_truth_dir) if ground_truth_dir else DEFAULT_GT_DIR
-        self.gt_dir.mkdir(parents=True, exist_ok=True)
 
         self._endpoint = get_endpoint(analysis_type)
         self._loaded_tasks: list[dict[str, Any]] | None = None
@@ -88,10 +81,7 @@ class SupermodelBenchmark:
         filter_category: list[str] | None = None,
         filter_tags: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Load tasks from config and extract ground truth from PR diffs.
-
-        Ground truth is cached in gt_dir to avoid repeated GitHub API calls.
-        """
+        """Load tasks from config and extract ground truth from PR diffs."""
         _ = _level, filter_tags
 
         tasks = []
@@ -167,22 +157,16 @@ class SupermodelBenchmark:
         language: str,
         scope_prefix: str | None,
     ) -> list[dict]:
-        """Load cached ground truth or extract from PR diff."""
-        ep_name = self._endpoint.name
-        gt_path = self.gt_dir / f"{ep_name}_{task_id}.json"
+        """Extract ground truth fresh from PR diff every run.
 
-        if gt_path.exists():
-            with open(gt_path) as f:
-                gt = json.load(f)
-            logger.info(f"Loaded cached GT: {len(gt)} items from {gt_path}")
-            return list(gt)
-
+        GT caching was removed because cached files silently bypassed every
+        fix applied to extract_ground_truth (FP filters, pattern additions,
+        etc.), causing stale GT to persist indefinitely with no invalidation.
+        GT extraction is a single GitHub API call and is cheap to re-run.
+        """
         logger.info(f"Extracting ground truth for {task_id} from PR diff...")
         gt = self._endpoint.extract_ground_truth(repo, pr_number, language, scope_prefix)
-
-        with open(gt_path, "w") as f:
-            json.dump(gt, f, indent=2)
-        logger.info(f"Extracted {len(gt)} ground truth items -> {gt_path}")
+        logger.info(f"Extracted {len(gt)} ground truth items for {task_id}")
 
         return list(gt)
 
@@ -563,20 +547,14 @@ CRITICAL RULES:
     ) -> dict:
         """Call Supermodel API and return parsed/filtered analysis.
 
-        Results are cached in gt_dir/{task_id}_analysis.json keyed by zip hash
-        so subsequent runs skip the API call.
+        Analysis caching was removed. The zip-hash cache key did not account
+        for changes in API logic (idempotency key version bumps, server-side
+        fixes), so cached results silently served stale data even after
+        server-side fixes were deployed. Each run calls the API fresh; the
+        server-side idempotency key handles deduplication at the API level.
         """
         zip_path = str(self._work_dir / f"{task_id}.zip")
         await zip_repo(str(repo_dir), zip_path, scope_prefix, exclude_patterns)
-
-        # Check cache
-        with open(zip_path, "rb") as f:
-            zip_hash = hashlib.sha256(f.read()).hexdigest()[:12]
-        cache_path = self.gt_dir / f"{task_id}_analysis_{zip_hash}.json"
-        if cache_path.exists():
-            logger.info(f"Using cached analysis: {cache_path}")
-            with open(cache_path) as f:
-                return dict(json.load(f))
 
         raw_response = await call_supermodel_api(
             endpoint_path=self._endpoint.api_path,
@@ -599,10 +577,6 @@ CRITICAL RULES:
                         fp = item.get("file", "")
                         if fp.startswith(prefix):
                             item["file"] = fp[len(prefix) :]
-
-        # Cache the result for future runs
-        cache_path.write_text(json.dumps(result, indent=2))
-        logger.info(f"Cached analysis at {cache_path}")
 
         return result
 

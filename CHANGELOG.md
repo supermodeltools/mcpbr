@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Remove GT and analysis caching from SupermodelBenchmark** (supermodeltools/supermodel-public-api#714):
+  Both caches had no invalidation mechanism, causing stale data to persist silently across runs.
+  The GT cache bypassed all fixes applied to `extract_ground_truth` (FP filters, pattern additions).
+  The analysis cache was keyed by zip hash, so server-side idempotency key version bumps did not
+  bust it — the server was never reached and old results were served indefinitely. Both caches are
+  now removed. GT extraction is a single GitHub API call (cheap). The Supermodel API handles
+  server-side deduplication via the idempotency key. Also removes the `DEFAULT_GT_DIR` constant
+  and `ground_truth_dir` constructor parameter, which existed solely to support the caches.
+
 - **Dead code benchmark: filter feature-removal false positives from ground truth** (supermodeltools/supermodel-public-api#714):
   The ground truth extractor now applies the existing `_is_feature_removal_fp` filter (which
   was implemented but never called). Symbols deleted in a PR that are also imported by other
