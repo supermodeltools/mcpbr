@@ -34,8 +34,6 @@ BINARY_EXCLUDE_PATTERNS = [
     "*.mp3",
     "*.wav",
     "*.ogg",
-    "*.map",
-    "*.js.map",
 ]
 
 
@@ -153,9 +151,25 @@ async def zip_repo(
     all_excludes = BINARY_EXCLUDE_PATTERNS + (exclude_patterns or [])
 
     if is_git:
-        return await _zip_repo_git_archive(repo_dir, output_zip, scope_prefix, all_excludes)
+        path = await _zip_repo_git_archive(repo_dir, output_zip, scope_prefix, all_excludes)
     else:
-        return await _zip_repo_fallback(repo_dir, output_zip, scope_prefix, all_excludes)
+        path = await _zip_repo_fallback(repo_dir, output_zip, scope_prefix, all_excludes)
+
+    _check_zip_size(path)
+    return path
+
+
+_MAX_ZIP_BYTES = 500 * 1024 * 1024  # 500 MB hard cap
+
+
+def _check_zip_size(zip_path: str) -> None:
+    """Raise if the zip exceeds the hard size cap."""
+    size = os.path.getsize(zip_path)
+    if size > _MAX_ZIP_BYTES:
+        raise RuntimeError(
+            f"Zip too large: {size / 1_000_000:.0f} MB > {_MAX_ZIP_BYTES // 1_000_000} MB limit. "
+            "Add zip_exclude patterns in the task config to reduce size."
+        )
 
 
 async def _zip_repo_git_archive(
@@ -189,16 +203,8 @@ async def _zip_repo_git_archive(
     return output_zip
 
 
-_ZIP_COMMENT = b"mcpbr-analysis-v3"
-
-
 def _filter_zip_entries(zip_path: str, patterns: list[str]) -> None:
-    """Rewrite zip in-place, removing entries whose basename matches any glob pattern.
-
-    Always rewrites (even if no entries are removed) to stamp the archive with
-    _ZIP_COMMENT so the resulting hash is stable across git archive versions and
-    acts as a cache-busting version marker.
-    """
+    """Rewrite zip in-place, removing entries whose basename matches any glob pattern."""
     tmp_path = zip_path + ".tmp"
     removed = 0
     try:
@@ -206,7 +212,6 @@ def _filter_zip_entries(zip_path: str, patterns: list[str]) -> None:
             zipfile.ZipFile(zip_path, "r") as zin,
             zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zout,
         ):
-            zout.comment = _ZIP_COMMENT
             for item in zin.infolist():
                 basename = os.path.basename(item.filename)
                 if any(fnmatch.fnmatch(basename, pat) for pat in patterns):

@@ -104,6 +104,7 @@ async def _run_cli_command(
         stdin=asyncio.subprocess.PIPE if input_text else asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        limit=2**24,  # 16MB — default 64KB causes LimitOverrunError on large JSONL lines
     )
 
     try:
@@ -156,6 +157,7 @@ async def _run_cli_streaming(
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        limit=2**24,  # 16MB — default 64KB causes LimitOverrunError on large JSONL lines
     )
 
     stdout_lines: list[str] = []

@@ -11,7 +11,6 @@ from .base import Benchmark, BenchmarkTask
 from .bigbench_hard import BigBenchHardBenchmark
 from .bigcodebench import BigCodeBenchBenchmark
 from .codecontests import CodeContestsBenchmark
-from .codegraph import CodeGraphBenchmark
 from .codereval import CoderEvalBenchmark
 from .custom import CustomBenchmark
 from .cybergym import CyberGymBenchmark
@@ -48,7 +47,6 @@ __all__ = [
     "BigBenchHardBenchmark",
     "BigCodeBenchBenchmark",
     "CodeContestsBenchmark",
-    "CodeGraphBenchmark",
     "CoderEvalBenchmark",
     "CustomBenchmark",
     "CyberGymBenchmark",
@@ -105,7 +103,6 @@ BENCHMARK_REGISTRY: dict[str, type[Benchmark]] = {
     "webarena": WebArenaBenchmark,
     "mlagentbench": MLAgentBenchBenchmark,
     "intercode": InterCodeBenchmark,
-    "codegraph": CodeGraphBenchmark,
     "custom": CustomBenchmark,
     "mmmu": MMMUBenchmark,
     "longbench": LongBenchBenchmark,
