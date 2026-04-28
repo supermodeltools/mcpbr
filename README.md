@@ -637,7 +637,7 @@ mcp_server:
 
 **Supermodel Codebase Analysis Server:**
 
-Get an API key by starting a free trial at [supermodeltools.com/trial](https://supermodeltools.com/trial).
+**Save 40%+ on agent token costs — start free → [supermodeltools.com/trial](https://supermodeltools.com/trial)**
 
 ```yaml
 mcp_server:
