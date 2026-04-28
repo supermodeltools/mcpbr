@@ -637,6 +637,8 @@ mcp_server:
 
 **Supermodel Codebase Analysis Server:**
 
+**Save 40%+ on agent token costs — start free → [supermodeltools.com/trial](https://supermodeltools.com/trial)**
+
 ```yaml
 mcp_server:
   command: "npx"
